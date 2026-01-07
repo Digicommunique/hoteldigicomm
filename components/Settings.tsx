@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { HostelSettings, Room, AgentConfig, RoomStatus, UserRole } from '../types.ts';
 import { exportDatabase, resetDatabase, clearOperationalData, importDatabase } from '../services/db.ts';
+import { fetchAllFromCloud, pushToCloud } from '../services/supabase.ts';
+import { db } from '../services/db.ts';
 
 interface SettingsProps {
   settings: HostelSettings;
@@ -17,6 +19,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
   const [tempSettings, setTempSettings] = useState<HostelSettings>(settings);
   const [newRoom, setNewRoom] = useState<Partial<Room>>({ number: '', floor: 1, type: settings.roomTypes[0] || '', price: 0 });
   const [newAgent, setNewAgent] = useState<AgentConfig>({ name: '', commission: 0 });
+  const [isCloudPulling, setIsCloudPulling] = useState(false);
 
   useEffect(() => { setTempSettings(settings); }, [settings]);
 
@@ -73,14 +76,35 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
         alert("Failed to restore data. Please ensure you are using a valid HotelSphere backup file.");
       }
     }
-    // Clear input so same file can be selected again if needed
     e.target.value = '';
+  };
+
+  const handleForceCloudPull = async () => {
+    if (!window.confirm("SYNC WARNING: This will overwrite ALL data in this browser with the current data from Supabase. Use this to sync multiple browsers. Proceed?")) return;
+    
+    setIsCloudPulling(true);
+    const cloudData = await fetchAllFromCloud();
+    if (cloudData) {
+      // Fix: Property 'transaction' does not exist on type 'HotelSphereDB'. Casting to any.
+      await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
+        if (cloudData.settings) await db.settings.put(cloudData.settings);
+        await db.rooms.clear(); await db.rooms.bulkPut(cloudData.rooms);
+        await db.guests.clear(); await db.guests.bulkPut(cloudData.guests);
+        await db.bookings.clear(); await db.bookings.bulkPut(cloudData.bookings);
+        await db.financialTransactions.clear(); await db.financialTransactions.bulkPut(cloudData.transactions);
+        await db.groups.clear(); await db.groups.bulkPut(cloudData.groups);
+      });
+      alert("Sync Complete! The application will now reload to apply changes.");
+      window.location.reload();
+    } else {
+      alert("Cloud Pull Failed. Check your connection.");
+    }
+    setIsCloudPulling(false);
   };
 
   return (
     <div className="p-4 md:p-6 bg-[#f8fafc] min-h-full pb-20 text-black">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Responsive Sub-navigation */}
         <div className="flex items-center justify-between bg-white p-2 rounded-2xl border shadow-sm sticky top-2 z-10">
           <div className="flex gap-1 overflow-x-auto no-scrollbar scrollbar-hide w-full md:w-auto">
             <SubTab active={activeSubTab === 'GENERAL'} label="Profile" onClick={() => setActiveSubTab('GENERAL')} />
@@ -112,32 +136,18 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
               <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4 text-slate-400">System Tools</h3>
               <div className="space-y-3">
                 <button onClick={exportDatabase} className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-black transition-all">Download Full Backup</button>
-                
-                <button 
-                  onClick={() => document.getElementById('restore-input')?.click()} 
-                  className="w-full bg-white text-blue-900 border-2 border-blue-100 py-4 rounded-2xl font-black text-xs uppercase hover:bg-blue-50 transition-all"
-                >
-                  Restore from Backup
-                </button>
-                <input 
-                  id="restore-input" 
-                  type="file" 
-                  accept=".json" 
-                  onChange={handleRestore} 
-                  className="hidden" 
-                />
+                <button onClick={() => document.getElementById('restore-input')?.click()} className="w-full bg-white text-blue-900 border-2 border-blue-100 py-4 rounded-2xl font-black text-xs uppercase hover:bg-blue-50 transition-all">Restore from Backup</button>
+                <input id="restore-input" type="file" accept=".json" onChange={handleRestore} className="hidden" />
               </div>
               
               {['SUPERADMIN', 'ADMIN'].includes(currentRole) && (
                 <div className="pt-6 border-t space-y-4">
                   <h3 className="font-black uppercase text-[10px] text-red-600 mb-2">Danger Zone</h3>
-                  
                   <div className="p-4 bg-orange-50 border-2 border-orange-100 rounded-2xl space-y-3">
                     <p className="text-[9px] font-black uppercase text-orange-800">Operational Reset</p>
                     <p className="text-[8px] font-bold text-orange-600 leading-tight">Clears all Bookings, Guests, and Bills. Keeps your Room inventory and Branding. Best for removing test data.</p>
                     <button onClick={handleClearOps} className="w-full bg-white text-orange-600 border-2 border-orange-200 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-orange-600 hover:text-white transition-all">Clear Records Only</button>
                   </div>
-
                   <div className="p-4 bg-red-50 border-2 border-red-100 rounded-2xl space-y-3">
                     <p className="text-[9px] font-black uppercase text-red-800">Factory Reset</p>
                     <p className="text-[8px] font-bold text-red-600 leading-tight">Wipes everything. Deletes Rooms, Settings, and all Data. Use this for a fresh installation.</p>
@@ -179,14 +189,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
                            <td className="p-5 text-blue-600">{r.type}</td>
                            <td className="p-5 text-right font-black">₹{r.price}</td>
                            <td className="p-5 text-center">
-                             <button 
-                                onClick={() => {
-                                  if(confirm(`Confirm delete Room ${r.number}?`)) onDeleteRoom(r.id);
-                                }} 
-                                className="text-red-500 text-[9px] font-black uppercase hover:underline"
-                             >
-                               Remove
-                             </button>
+                             <button onClick={() => { if(confirm(`Confirm delete Room ${r.number}?`)) onDeleteRoom(r.id); }} className="text-red-500 text-[9px] font-black uppercase hover:underline">Remove</button>
                            </td>
                         </tr>
                      ))}
@@ -240,12 +243,6 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
                 <Input label="Accounts Dept" value={tempSettings.accountantPassword || ''} onChange={v => handleUpdate('accountantPassword', v)} type="password" />
                 <Input label="Housekeeping Super" value={tempSettings.supervisorPassword || ''} onChange={v => handleUpdate('supervisorPassword', v)} type="password" />
               </div>
-              <div className="bg-orange-50 p-6 rounded-2xl border-2 border-dashed border-orange-200">
-                <p className="text-[10px] font-black text-orange-700 uppercase leading-relaxed">
-                  Notice: Changes to passwords take effect immediately across all terminals. 
-                  Keep the Superadmin master password secure as it bypasses all restrictions.
-                </p>
-              </div>
             </section>
           </div>
         )}
@@ -255,9 +252,37 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
              <div className="flex items-center gap-6 border-b pb-8">
                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0">☁️</div>
                <div>
-                 <h2 className="text-2xl md:text-3xl font-black text-black uppercase tracking-tighter leading-tight">Supabase Sync</h2>
+                 <h2 className="text-2xl md:text-3xl font-black text-black uppercase tracking-tighter leading-tight">Supabase Multi-Browser Sync</h2>
                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Real-time Data Orchestration</p>
                </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-8 bg-blue-50 border-2 border-blue-100 rounded-[2rem] space-y-4">
+                  <h4 className="text-sm font-black uppercase text-blue-900">Sync Browser Data</h4>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">If you just switched to this browser/device and don't see your data, click below to pull the latest from the cloud.</p>
+                  <button 
+                    onClick={handleForceCloudPull}
+                    disabled={isCloudPulling}
+                    className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-black transition-all"
+                  >
+                    {isCloudPulling ? 'Synchronizing...' : 'Pull Latest from Cloud'}
+                  </button>
+                </div>
+
+                <div className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2rem] space-y-4">
+                   <h4 className="text-sm font-black uppercase text-slate-900">Push Refresh</h4>
+                   <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">Manually force an upload of current local data to the cloud. Useful if sync status shows 'Error'.</p>
+                   <button 
+                    onClick={async () => {
+                      const success = await pushToCloud('settings', [settings]);
+                      if (success) alert('Local settings pushed to cloud.');
+                    }}
+                    className="w-full bg-white text-slate-900 border-2 border-slate-200 py-4 rounded-2xl font-black text-xs uppercase"
+                  >
+                    Force Push Settings
+                  </button>
+                </div>
              </div>
              
              <div className="p-4 md:p-10 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] space-y-6">
