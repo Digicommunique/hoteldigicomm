@@ -31,16 +31,15 @@ const GRCForm: React.FC<GRCFormProps> = ({ guest, booking, rooms, settings, onCl
           <div className="max-w-4xl mx-auto border border-slate-400 p-1">
             
             {/* Logo Section */}
-            <div className="flex items-center gap-2 mb-2">
-               <div className="text-green-700 font-black italic leading-none">
-                 <div className="text-lg">BIHAR</div>
-                 <div className="text-[10px] tracking-widest">TOURISM</div>
-                 <div className="text-[8px] text-orange-500 font-normal">Blissful Bihar</div>
+            <div className="flex items-center justify-center p-4 border-b border-slate-400">
+               <div className="flex flex-col items-center">
+                 <img src="https://fejxskvsjfwjqmiobtpp.supabase.co/storage/v1/object/public/logos/bihar-tourism-logo.png" alt="Bihar Tourism Logo" className="h-20 w-auto mb-2" />
+                 <div className="text-[10px] font-black uppercase text-slate-600 tracking-[0.3em]">Department of Tourism, Bihar</div>
                </div>
             </div>
 
             {/* Title Bar */}
-            <div className="bg-slate-200 border-y border-slate-400 text-center py-1 font-black uppercase text-[11px] tracking-widest">
+            <div className="bg-slate-200 border-b border-slate-400 text-center py-1 font-black uppercase text-[11px] tracking-widest">
               Guest Registration Card
             </div>
 
@@ -147,15 +146,6 @@ const GRCForm: React.FC<GRCFormProps> = ({ guest, booking, rooms, settings, onCl
                     <td className="p-1">{booking?.children || ''}</td>
                     <td className="p-1">{(booking?.kids || 0) + (booking?.others || 0) || ''}</td>
                   </tr>
-                  <tr className="divide-x border-slate-400 h-10 align-top border-t border-slate-400">
-                    <td className="p-1"></td>
-                    <td className="p-1"></td>
-                    <td className="p-1"></td>
-                    <td className="p-1"></td>
-                    <td className="p-1"></td>
-                    <td className="p-1"></td>
-                    <td className="p-1"></td>
-                  </tr>
                 </tbody>
               </table>
             </div>
@@ -166,7 +156,6 @@ const GRCForm: React.FC<GRCFormProps> = ({ guest, booking, rooms, settings, onCl
                 <p>Billing Instruction/Address :</p>
                 <div className="h-4 border-b border-slate-200 mt-1"></div>
                 <p className="mt-2">Discount if any : {booking?.discount ? `₹${booking.discount}` : ''}</p>
-                {booking?.extraBed && <p className="text-orange-600 font-black mt-1">Extra Bed Provided</p>}
               </div>
 
               <div className="flex justify-between items-end pt-12 pb-4">

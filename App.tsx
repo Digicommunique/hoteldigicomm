@@ -47,43 +47,16 @@ const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<'OK' | 'ERROR'>('OK');
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   
-  const [publicBillData, setPublicBillData] = useState<{booking: Booking, guest: Guest, room: Room} | null>(null);
-  const [isPublicLoading, setIsPublicLoading] = useState(false);
-
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
   const [showCheckinForm, setShowCheckinForm] = useState(false);
   const [showReservationForm, setShowReservationForm] = useState(false);
   const [showRoomActions, setShowRoomActions] = useState(false);
   const [showBillArchive, setShowBillArchive] = useState(false);
+  const [showOldDataImport, setShowOldDataImport] = useState(false);
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'GROUP' | 'REPORTS' | 'ACCOUNTING' | 'SETTINGS'>('DASHBOARD');
 
-  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-  const [selectedRoomIdsForBulk, setSelectedRoomIdsForBulk] = useState<string[]>([]);
-
   const todayStr = new Date().toISOString().split('T')[0];
-
-  const refreshFromCloud = async (silent = false) => {
-    if (!silent) setIsSyncing(true);
-    const cloudData = await fetchAllFromCloud();
-    if (cloudData) {
-      await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
-        if (cloudData.settings) {
-          await db.settings.put(cloudData.settings);
-          setSettings(cloudData.settings);
-        }
-        await db.rooms.clear(); if (cloudData.rooms.length > 0) await db.rooms.bulkPut(cloudData.rooms); setRooms(cloudData.rooms);
-        await db.guests.clear(); if (cloudData.guests.length > 0) await db.guests.bulkPut(cloudData.guests); setGuests(cloudData.guests);
-        await db.bookings.clear(); if (cloudData.bookings.length > 0) await db.bookings.bulkPut(cloudData.bookings); setBookings(cloudData.bookings);
-        await db.financialTransactions.clear(); if (cloudData.transactions.length > 0) await db.financialTransactions.bulkPut(cloudData.transactions); setTransactions(cloudData.transactions);
-        await db.groups.clear(); if (cloudData.groups.length > 0) await db.groups.bulkPut(cloudData.groups); setGroups(cloudData.groups);
-      });
-      setSyncStatus('OK');
-    } else {
-      setSyncStatus('ERROR');
-    }
-    if (!silent) setIsSyncing(false);
-  };
 
   const handleRealtimeChange = useCallback(async (payload: any, table: string) => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
@@ -145,7 +118,6 @@ const App: React.FC = () => {
       const cloudData = await fetchAllFromCloud();
       
       if (cloudData && cloudData.settings) {
-         // Cloud is source of truth
          await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
            await db.settings.put(cloudData.settings);
            await db.rooms.clear(); if(cloudData.rooms.length) await db.rooms.bulkPut(cloudData.rooms);
@@ -161,7 +133,6 @@ const App: React.FC = () => {
          setTransactions(cloudData.transactions);
          setGroups(cloudData.groups);
       } else {
-        // Fallback to local
         const [r, g, b, t, gr, set] = await Promise.all([
           db.rooms.toArray(), db.guests.toArray(), db.bookings.toArray(),
           db.financialTransactions.toArray(), db.groups.toArray(), db.settings.get('primary')
@@ -169,7 +140,6 @@ const App: React.FC = () => {
         if (set) {
           setSettings(set); setRooms(r); setGuests(g); setBookings(b); setTransactions(t); setGroups(gr);
         } else {
-          // Absolute fallback
           await db.settings.put(settings);
           await db.rooms.bulkPut(INITIAL_ROOMS);
           setRooms(INITIAL_ROOMS);
@@ -202,7 +172,6 @@ const App: React.FC = () => {
   const updateGuests = (newGuests: Guest[]) => { setGuests([...newGuests]); return syncToDB(db.guests, newGuests, 'guests'); };
   const updateBookings = (newBookings: Booking[]) => { setBookings([...newBookings]); return syncToDB(db.bookings, newBookings, 'bookings'); };
   const updateTransactions = (newTx: Transaction[]) => { setTransactions([...newTx]); return syncToDB(db.financialTransactions, newTx, 'transactions'); };
-  const updateGroups = (newGroups: GroupProfile[]) => { setGroups([...newGroups]); return syncToDB(db.groups, newGroups, 'groups'); };
   const updateSettings = (newSet: HostelSettings) => { setSettings({...newSet}); return syncToDB(db.settings, newSet, 'settings'); };
 
   const getRoomEffectiveStatus = (room: Room, bookingsList: Booking[]): RoomStatus => {
@@ -351,18 +320,19 @@ const App: React.FC = () => {
           <Stat label="Vacant" count={stats.vacant} color="text-green-600" />
           <Stat label="Occ" count={stats.occupied} color="text-blue-600" />
           <Stat label="Resv" count={stats.reserved} color="text-orange-600" />
-          <Stat label="Dirty" count={stats.dirty} color="text-red-600" />
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowOldDataImport(true)} className="bg-blue-50 text-blue-900 border-2 border-blue-100 px-4 py-1.5 rounded-xl font-black text-[9px] uppercase hover:bg-blue-900 hover:text-white transition-all">Old Data</button>
+          <button onClick={() => setShowBillArchive(true)} className="bg-blue-900 text-white px-4 py-1.5 rounded-xl font-black text-[9px] uppercase shadow-lg hover:bg-black transition-all">All Bill</button>
+          
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${isSyncing ? 'animate-pulse bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
             <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
             <span className="text-[8px] font-black uppercase text-black">{isSyncing ? 'Syncing...' : 'Idle'}</span>
           </div>
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${realtimeConnected ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
             <div className={`w-2 h-2 rounded-full ${realtimeConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className="text-[8px] font-black uppercase text-black">{realtimeConnected ? 'Cloud Online' : 'Cloud Offline'}</span>
+            <span className="text-[8px] font-black uppercase text-black">{realtimeConnected ? 'Online' : 'Offline'}</span>
           </div>
-          <button onClick={() => setShowBillArchive(true)} className="p-2 bg-blue-900 text-white rounded-lg"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></button>
         </div>
       </footer>
       {showRoomActions && selectedRoom && (
@@ -370,6 +340,12 @@ const App: React.FC = () => {
       )}
       {showBillArchive && (
         <BillArchive bookings={bookings} guests={guests} rooms={rooms} settings={settings} onClose={() => setShowBillArchive(false)} />
+      )}
+      {showOldDataImport && (
+        <OldDataImport rooms={rooms} onClose={() => setShowOldDataImport(false)} onImport={async (data) => {
+          await updateGuests([...guests, ...data.guests]);
+          await updateBookings([...bookings, ...data.bookings]);
+        }} />
       )}
       {showReservationForm && <ReservationEntry rooms={rooms} existingGuests={guests} onClose={() => setShowReservationForm(false)} onSave={async (data) => { /* logic */ setShowReservationForm(false); }} settings={settings} />}
     </div>

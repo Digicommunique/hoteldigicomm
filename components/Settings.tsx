@@ -110,7 +110,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
             <SubTab active={activeSubTab === 'ROOMS'} label="Inventory" onClick={() => setActiveSubTab('ROOMS')} />
             <SubTab active={activeSubTab === 'AGENTS'} label="Agents" onClick={() => setActiveSubTab('AGENTS')} />
             <SubTab active={activeSubTab === 'SECURITY'} label="Security" onClick={() => setActiveSubTab('SECURITY')} />
-            <SubTab active={activeSubTab === 'CLOUD'} label="Sync Fix" onClick={() => setActiveSubTab('CLOUD')} />
+            <SubTab active={activeSubTab === 'CLOUD'} label="Sync Fix (IMPORTANT)" onClick={() => setActiveSubTab('CLOUD')} />
           </div>
         </div>
 
@@ -151,8 +151,9 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
           <div className="space-y-6 animate-in fade-in duration-500">
             <section className="bg-white p-6 md:p-8 rounded-3xl border shadow-sm space-y-6">
               <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4">Room Registry</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 items-end">
                 <Input label="Room No" value={newRoom.number || ''} onChange={v => setNewRoom({...newRoom, number: v})} />
+                <Input label="Floor" type="number" value={newRoom.floor?.toString() || '1'} onChange={v => setNewRoom({...newRoom, floor: parseInt(v) || 1})} />
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Category</label>
                   <select className="w-full border-2 p-4 rounded-2xl font-black text-xs bg-gray-50 text-black outline-none" value={newRoom.type} onChange={e => setNewRoom({...newRoom, type: e.target.value})}>
@@ -172,9 +173,9 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
                   <tbody className="divide-y font-bold text-black">
                      {rooms.map(r => (
                         <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                           <td className="p-5">{r.floor}</td>
-                           <td className="p-5 font-black text-lg">{r.number}</td>
-                           <td className="p-5 text-blue-600">{r.type}</td>
+                           <td className="p-5 font-black text-blue-600">{r.floor}</td>
+                           <td className="p-5 font-black text-lg text-black">{r.number}</td>
+                           <td className="p-5"><span className="bg-blue-50 text-black px-3 py-1 rounded-full text-[9px] uppercase font-black">{r.type}</span></td>
                            <td className="p-5 text-right font-black">₹{r.price}</td>
                            <td className="p-5 text-center">
                              <button onClick={() => { if(confirm(`Delete Room ${r.number}?`)) onDeleteRoom(r.id); }} className="text-red-500 text-[9px] font-black uppercase hover:underline">Remove</button>
@@ -235,72 +236,89 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
              <div className="flex items-center gap-6 border-b pb-8">
                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0 text-blue-600">☁️</div>
                <div>
-                 <h2 className="text-2xl md:text-3xl font-black text-black uppercase tracking-tighter leading-tight">Fix Multi-Browser Sync</h2>
-                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Real-time Cloud Orchestration</p>
+                 <h2 className="text-2xl md:text-3xl font-black text-black uppercase tracking-tighter leading-tight">Fix Sync Errors</h2>
+                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Real-time Cloud Control</p>
                </div>
              </div>
 
-             <div className="bg-red-50 p-6 md:p-10 rounded-[2rem] border-2 border-red-200 space-y-6">
-                <div className="flex items-center gap-3">
-                   <div className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center text-xl font-black">!</div>
+             <div className="p-8 bg-red-50 border-2 border-red-200 rounded-[2rem] space-y-8">
+                <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center text-xl font-black animate-pulse">!</div>
                    <div>
-                     <h4 className="text-lg font-black uppercase text-red-900 leading-tight">Why Browser A is different from Browser B?</h4>
-                     <p className="text-[10px] font-bold text-red-700 uppercase">You must run the SQL script below to enable FULL data replication.</p>
+                     <h4 className="text-xl font-black uppercase text-red-900 leading-tight">FIX: Syntax Error & Different Data</h4>
+                     <p className="text-[11px] font-bold text-red-700 uppercase">Follow these 2 steps exactly to synchronize your browsers.</p>
                    </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border-2 border-red-100 space-y-4">
-                   <p className="text-xs font-bold text-slate-700 leading-relaxed">
-                     By default, Supabase only sends "ID" changes. To see <b>Room Numbers</b> and <b>Guest Names</b> update in real-time on other browsers, run this in your <b>Supabase SQL Editor</b>:
-                   </p>
-                   <div className="relative">
-                     <pre className="bg-gray-50 p-6 rounded-xl border font-mono text-[10px] text-red-900 overflow-x-auto shadow-inner select-all leading-relaxed whitespace-pre-wrap max-h-96 custom-scrollbar">
-{`-- FIX INCONSISTENT DATA (Run in SQL Editor) --
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h5 className="font-black text-xs uppercase text-slate-900 border-l-4 border-blue-600 pl-3">Step 1: Use SQL Editor Only</h5>
+                    <ol className="text-[12px] font-bold text-slate-700 space-y-4 list-decimal ml-5">
+                      <li>Go to Supabase.</li>
+                      <li>Click the <b>SQL Editor</b> icon (looks like <code className="bg-slate-200 px-1 rounded">&gt;_</code>).</li>
+                      <li>Click <b>"+ New Query"</b> at the top.</li>
+                      <li><b>DO NOT</b> use the "Policies" or "RLS" dialog.</li>
+                    </ol>
+                  </div>
+                  <div className="space-y-4">
+                    <h5 className="font-black text-xs uppercase text-slate-900 border-l-4 border-green-600 pl-3">Step 2: Copy-Paste Everything Below</h5>
+                    <p className="text-[11px] text-slate-500 font-bold">Paste the entire script into the "New Query" window and click "Run".</p>
+                  </div>
+                </div>
 
--- 1. Ensure RLS is active and permissive
+                <div className="bg-white p-6 rounded-2xl border-2 border-red-100 relative shadow-inner">
+                  <pre className="font-mono text-[10px] text-red-900 overflow-x-auto select-all leading-relaxed whitespace-pre-wrap max-h-96 custom-scrollbar">
+{`-- PASTE THIS INTO "SQL EDITOR" -> "NEW QUERY" --
+
+-- 1. Enable RLS on all tables
 ALTER TABLE IF EXISTS "rooms" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS "bookings" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS "guests" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS "transactions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS "settings" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "groups" ENABLE ROW LEVEL SECURITY;
 
+-- 2. Drop existing policies to prevent conflicts
 DROP POLICY IF EXISTS "Allow Public" ON "rooms";
 DROP POLICY IF EXISTS "Allow Public" ON "bookings";
 DROP POLICY IF EXISTS "Allow Public" ON "guests";
 DROP POLICY IF EXISTS "Allow Public" ON "transactions";
 DROP POLICY IF EXISTS "Allow Public" ON "settings";
+DROP POLICY IF EXISTS "Allow Public" ON "groups";
 
+-- 3. Create permissive public policies
 CREATE POLICY "Allow Public" ON "rooms" FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow Public" ON "bookings" FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow Public" ON "guests" FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow Public" ON "transactions" FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow Public" ON "settings" FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow Public" ON "groups" FOR ALL USING (true) WITH CHECK (true);
 
--- 2. ENABLE FULL REPLICATION (Crucial for multi-browser sync)
+-- 4. CRITICAL: Enable Full Replication (Fixes different data in browsers)
 ALTER TABLE "rooms" REPLICA IDENTITY FULL;
 ALTER TABLE "bookings" REPLICA IDENTITY FULL;
 ALTER TABLE "guests" REPLICA IDENTITY FULL;
 ALTER TABLE "transactions" REPLICA IDENTITY FULL;
 ALTER TABLE "settings" REPLICA IDENTITY FULL;
+ALTER TABLE "groups" REPLICA IDENTITY FULL;
 
--- 3. Clear Cache
+-- 5. Reload Schema Cache
 NOTIFY pgrst, 'reload schema';`}
-                     </pre>
-                   </div>
+                  </pre>
                 </div>
              </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-8 bg-blue-50 border-2 border-blue-100 rounded-[2rem] space-y-4">
-                  <h4 className="text-sm font-black uppercase text-blue-900">Force Pull from Cloud</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">If Browser B is still showing old data, click this to force a full refresh from the cloud database.</p>
+                  <h4 className="text-sm font-black uppercase text-blue-900">Sync & Force Reload</h4>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">If Browser B still shows old data, click this to wipe local memory and pull from cloud.</p>
                   <button onClick={handleForceCloudPull} disabled={isCloudPulling} className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-black transition-all">
                     {isCloudPulling ? 'Synchronizing...' : 'Full Sync & Reload'}
                   </button>
                 </div>
                 <div className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2rem] space-y-4 flex flex-col justify-center">
-                  <h4 className="text-sm font-black uppercase text-slate-900">Real-time Channel</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">State: Check the "Cloud" indicator in the footer. If it's 🟢, you are receiving updates.</p>
+                  <h4 className="text-sm font-black uppercase text-slate-900">Connection State</h4>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">Look for 🟢 Cloud Online in the bottom footer. If it is 🔴, your browser is not connected to Supabase.</p>
                 </div>
              </div>
           </div>
@@ -316,7 +334,7 @@ const SubTab: React.FC<{ active: boolean, label: string, onClick: () => void }> 
 
 const Input: React.FC<{ label: string, value: string, onChange: (v: string) => void, type?: string }> = ({ label, value, onChange, type = "text" }) => (
   <div className="space-y-1 w-full text-left">
-    <label className="text-[9px] md:text-[10px] font-black uppercase text-gray-400 ml-2 tracking-tight">{label}</label>
+    <label className="text-[9px] md:text-[10px] font-black uppercase text-gray-400 ml-1 tracking-tight">{label}</label>
     <input type={type} className="w-full border-2 p-3.5 md:p-4 rounded-2xl font-black text-[12px] bg-gray-50 focus:bg-white focus:border-blue-500 shadow-inner text-black transition-all outline-none" value={value || ''} onChange={e => onChange(e.target.value)} />
   </div>
 );

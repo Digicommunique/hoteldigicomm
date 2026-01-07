@@ -26,10 +26,7 @@ const StayManagement: React.FC<StayManagementProps> = ({
 }) => {
   const [showAddCharge, setShowAddCharge] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
-  const [showExtendStay, setShowExtendStay] = useState(false);
-  const [showShiftRoom, setShowShiftRoom] = useState(false);
   const [showEditGuest, setShowEditGuest] = useState(false);
-  const [showCForm, setShowCForm] = useState(false);
   
   const [isCombinedMode, setIsCombinedMode] = useState(false);
   const [isSplitMode, setIsSplitMode] = useState(false);
@@ -39,14 +36,6 @@ const StayManagement: React.FC<StayManagementProps> = ({
   const [newPayment, setNewPayment] = useState({ amount: '', method: 'Cash', remarks: '' });
   const [autoCheckout, setAutoCheckout] = useState(false);
   
-  const [extCheckOut, setExtCheckOut] = useState(booking.checkOutDate);
-  const [editedGuest, setEditedGuest] = useState<Guest>({ ...guest });
-  const [editedStay, setEditedStay] = useState({ 
-    basePrice: booking.basePrice?.toString() || '0', 
-    discount: booking.discount?.toString() || '0',
-    purpose: booking.purpose || '' 
-  });
-
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
@@ -256,59 +245,49 @@ const StayManagement: React.FC<StayManagementProps> = ({
         <div className="flex-1 overflow-y-auto bg-gray-100 p-2 md:p-8 custom-scrollbar no-print-backdrop overflow-x-hidden">
           <div className="max-w-[1200px] mx-auto bg-white shadow-lg invoice-sheet border border-gray-300 print:border-none min-w-[320px] overflow-hidden">
             {/* INVOICE HEADER */}
-            <div className="p-3 md:p-4 flex justify-between items-start">
-              <div className="flex gap-3 md:gap-4 items-center">
-                {settings.logo ? (
-                  <img src={settings.logo} className="h-10 w-10 md:h-16 md:w-16 object-contain" />
-                ) : (
-                  <div className="w-10 h-10 md:w-16 md:h-16 bg-green-800 text-white flex flex-col items-center justify-center italic leading-none font-black text-[8px] md:text-xs shrink-0">
-                    <span>BIHAR</span>
-                    <span className="text-[6px] md:text-[8px] tracking-widest mt-0.5 uppercase">Tourism</span>
-                  </div>
-                )}
+            <div className="p-6 md:p-8 flex justify-between items-start border-b border-gray-100">
+              <div className="flex gap-6 items-center">
+                <img src="https://fejxskvsjfwjqmiobtpp.supabase.co/storage/v1/object/public/logos/bihar-tourism-logo.png" className="h-20 w-auto" alt="Bihar Tourism Logo" />
                 <div>
-                  <h1 className="text-sm md:text-xl font-bold uppercase text-slate-800 leading-none">{settings.name || "HOTEL RAJGIR INTERNATIONAL"}</h1>
-                  <p className="text-[7px] md:text-[10px] font-bold text-slate-600 mt-1 uppercase">GST: {settings.gstNumber || '10AARFH8991A1ZB'}</p>
+                  <h1 className="text-xl md:text-2xl font-black uppercase text-slate-800 leading-tight">{settings.name || "HOTEL RAJGIR INTERNATIONAL"}</h1>
+                  <p className="text-[9px] md:text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-widest">Department of Tourism, Govt of Bihar</p>
+                  <p className="text-[7px] md:text-[9px] font-bold text-slate-400 mt-1 uppercase">GST: {settings.gstNumber || '10AARFH8991A1ZB'}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gray-200 text-center py-1 border-y border-gray-400 font-bold text-[9px] md:text-[11px] uppercase tracking-wider">
-              Tax Invoice
+            <div className="bg-slate-900 text-white text-center py-1.5 font-black text-[10px] md:text-[12px] uppercase tracking-[0.3em]">
+              Tax Invoice / Folio
             </div>
 
             {/* GUEST INFO GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 text-[9px] md:text-[10px] border-b border-gray-400">
+            <div className="grid grid-cols-1 md:grid-cols-2 text-[10px] md:text-[11px] border-b border-gray-400">
               <div className="border-b md:border-b-0 md:border-r border-gray-400 divide-y divide-gray-400">
                 <InfoRow label="Bill No" value={isCombinedMode ? `COMB-${booking.bookingNo}` : booking.bookingNo} />
                 <InfoRow label="Guest Name" value={guest.name} />
-                <InfoRow label="Address" value={`${guest.address || ''}, ${guest.phone}`} height="h-auto py-1" />
+                <InfoRow label="Address" value={`${guest.address || ''}, ${guest.phone}`} height="h-auto py-2" />
                 <InfoRow label="Checkin" value={`${booking.checkInDate} ${booking.checkInTime}`} />
-                <InfoRow label="Ref ID" value={booking.bookingNo} />
               </div>
               <div className="divide-y divide-gray-400">
                 <InfoRow label="Bill Date" value={new Date().toLocaleDateString('en-GB')} />
                 <InfoRow label="Room" value={isCombinedMode ? `${activeBookings.length} Units` : `${room.number}-${room.type}`} />
-                <InfoRow label="Pax" value={isCombinedMode ? `Combined` : `(A: ${booking.adults || 0}, C: ${booking.children || 0}, K: ${booking.kids || 0}) Total: ${booking.totalPax || 0}`} />
+                <InfoRow label="Pax" value={isCombinedMode ? `Combined` : `(A: ${booking.adults || 0}, C: ${booking.children || 0}, K: ${booking.kids || 0})`} />
                 <InfoRow label="Checkout" value={`${booking.checkOutDate} ${booking.checkOutTime}`} />
-                <InfoRow label="Agent" value={booking.agent || 'Direct'} />
               </div>
             </div>
 
             {/* MAIN ITEMS TABLE */}
             <div className="overflow-x-auto">
-              <table className="w-full text-[9px] md:text-[10px] border-collapse min-w-[700px]">
+              <table className="w-full text-[10px] md:text-[11px] border-collapse min-w-[700px]">
                 <thead>
                   <tr className="border-b border-gray-400 bg-gray-50 text-left font-bold uppercase divide-x divide-gray-400">
-                    <th className="p-2 w-20">Date</th>
-                    <th className="p-2">Description</th>
-                    <th className="p-2 w-16 text-center">HSN</th>
-                    <th className="p-2 w-20 text-right">Rate</th>
-                    <th className="p-2 w-16 text-center">Nights</th>
-                    <th className="p-2 w-20 text-right">Value</th>
-                    <th className="p-2 w-20 text-right">Disc</th>
-                    <th className="p-2 w-20 text-right">Tax</th>
-                    <th className="p-2 w-24 text-right">Net Total</th>
+                    <th className="p-3">Description</th>
+                    <th className="p-3 w-20 text-center">HSN</th>
+                    <th className="p-3 w-24 text-right">Rate</th>
+                    <th className="p-3 w-16 text-center">Nights</th>
+                    <th className="p-3 w-24 text-right">Value</th>
+                    <th className="p-3 w-24 text-right">Tax ({settings.taxRate || 0}%)</th>
+                    <th className="p-3 w-28 text-right">Net Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-400 border-b border-gray-400 font-medium">
@@ -318,15 +297,13 @@ const StayManagement: React.FC<StayManagementProps> = ({
                     const itemGst = (item.amount * (settings.taxRate || 0)) / 100;
                     return (
                       <tr key={item.id} className={`divide-x divide-gray-400 ${isSplitMode && !isSelected ? 'opacity-30' : ''}`}>
-                        <td className="p-2">{booking.checkInDate}</td>
-                        <td className="p-2 uppercase">{item.description}</td>
-                        <td className="p-2 text-center">{item.hsn}</td>
-                        <td className="p-2 text-right">{item.rate.toFixed(2)}</td>
-                        <td className="p-2 text-center">{item.nights}</td>
-                        <td className="p-2 text-right">{item.amount.toFixed(2)}</td>
-                        <td className="p-2 text-right">0.00</td>
-                        <td className="p-2 text-right">{itemGst.toFixed(2)}</td>
-                        <td className="p-2 text-right">{(item.amount + itemGst).toFixed(2)}</td>
+                        <td className="p-3 uppercase font-bold">{item.description}</td>
+                        <td className="p-3 text-center">{item.hsn}</td>
+                        <td className="p-3 text-right">{item.rate.toFixed(2)}</td>
+                        <td className="p-3 text-center">{item.nights}</td>
+                        <td className="p-3 text-right">{item.amount.toFixed(2)}</td>
+                        <td className="p-3 text-right">{itemGst.toFixed(2)}</td>
+                        <td className="p-3 text-right font-black">{(item.amount + itemGst).toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -335,52 +312,57 @@ const StayManagement: React.FC<StayManagementProps> = ({
             </div>
 
             {/* TOTALS SECTION */}
-            <div className="flex flex-col md:flex-row justify-between items-end border-b border-gray-400 p-2 md:p-3 gap-4">
-              <div className="italic font-bold text-[8px] md:text-[10px] text-gray-400 uppercase w-full md:w-auto text-center md:text-left">
+            <div className="flex flex-col md:flex-row justify-between items-end border-b border-gray-400 p-4 gap-4">
+              <div className="italic font-bold text-[9px] md:text-[11px] text-gray-400 uppercase w-full md:w-auto text-center md:text-left">
                 ({numberToWords(totals.grossTotal)})
               </div>
-              <div className="w-full md:w-72 divide-y divide-gray-200 font-bold text-[10px] md:text-[11px] text-right">
-                <div className="py-1 flex justify-between px-2"><span className="text-gray-500 uppercase">Gross:</span><span>{totals.grossTotal.toFixed(2)}</span></div>
-                <div className="py-1 flex justify-between px-2 text-red-600"><span className="uppercase">Paid:</span><span>{totals.totalPayments.toFixed(2)}</span></div>
-                <div className="py-2 flex justify-between px-2 text-[12px] md:text-[14px] bg-gray-50 border-t-2 border-gray-300"><span className="uppercase text-slate-800">Due:</span><span className="text-slate-900">{totals.balance.toFixed(2)}</span></div>
+              <div className="w-full md:w-80 divide-y divide-gray-200 font-bold text-[11px] md:text-[12px] text-right">
+                <div className="py-1.5 flex justify-between px-2"><span className="text-gray-500 uppercase">Sub Total:</span><span>{totals.subTotal.toFixed(2)}</span></div>
+                <div className="py-1.5 flex justify-between px-2"><span className="text-gray-500 uppercase">Discount:</span><span>-{totals.totalDiscount.toFixed(2)}</span></div>
+                <div className="py-1.5 flex justify-between px-2"><span className="text-gray-500 uppercase">GST Amount:</span><span>{totals.taxAmount.toFixed(2)}</span></div>
+                <div className="py-2 flex justify-between px-2 text-[14px] md:text-[16px] bg-slate-900 text-white"><span className="uppercase">Grand Total:</span><span>{totals.grossTotal.toFixed(2)}</span></div>
+                <div className="py-1.5 flex justify-between px-2 text-blue-600"><span className="uppercase">Total Paid:</span><span>{totals.totalPayments.toFixed(2)}</span></div>
+                <div className="py-2 flex justify-between px-2 text-[14px] md:text-[18px] bg-red-50 text-red-700 border-t-2 border-red-200"><span className="uppercase">Balance Due:</span><span>{totals.balance.toFixed(2)}</span></div>
               </div>
             </div>
 
             {/* FOOTER & DISCLAIMER */}
-            <div className="p-3 md:p-4 bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left border-t border-gray-200">
-               <div className="text-[8px] md:text-[9px] font-bold text-gray-500 uppercase space-y-1">
-                 <p className="text-slate-800 font-black">Address: NATURE SAFARI ROAD, NH-82, RAJGIR, BIHAR</p>
-                 <p>Contact: 7781860495 | Email: {settings.email || 'HOTELRAJGIRINTERNATIONAL@GMAIL.COM'}</p>
+            <div className="p-6 bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left border-t border-gray-200">
+               <div className="text-[10px] md:text-[11px] font-bold text-slate-600 uppercase space-y-2">
+                 <p className="text-slate-900 font-black">Rajgir Office: NATURE SAFARI ROAD, RAJGIR, NALANDA, BIHAR</p>
+                 <p>Contact: 7781860495 | Web: tourism.bihar.gov.in</p>
+                 <div className="pt-8 text-center md:text-left">
+                    <div className="w-32 h-px bg-slate-400 mx-auto md:mx-0 mb-1"></div>
+                    <span className="text-[9px] font-black text-slate-400">Auth. Signatory</span>
+                 </div>
                </div>
-               <div className="w-20 md:w-24 flex flex-col items-center">
-                  {qrCodeUrl ? <img src={qrCodeUrl} className="w-16 h-16 md:w-20 md:h-20" /> : <div className="h-16 w-16 bg-gray-200"></div>}
-                  <span className="text-[6px] md:text-[7px] font-black uppercase mt-1">Digital Bill</span>
+               <div className="w-24 md:w-32 flex flex-col items-center">
+                  {qrCodeUrl ? <img src={qrCodeUrl} className="w-20 h-20 md:w-24 md:h-24" /> : <div className="h-24 w-24 bg-gray-200"></div>}
+                  <span className="text-[7px] md:text-[8px] font-black uppercase mt-2 tracking-widest text-slate-400">Verify Bill</span>
                </div>
             </div>
           </div>
         </div>
 
-        {/* MOBILE ACTIONS BAR */}
         {!isPublic && (
-          <div className="p-3 md:p-4 bg-gray-900 flex flex-wrap justify-center md:justify-between items-center gap-2 md:gap-4 no-print text-white shrink-0">
+          <div className="p-4 bg-gray-900 flex flex-wrap justify-center md:justify-between items-center gap-4 no-print text-white shrink-0">
             <div className="flex gap-2 w-full md:w-auto">
-              <button onClick={() => window.print()} className="flex-1 md:flex-none bg-blue-600 px-4 py-3 rounded-xl font-black text-[10px] md:text-xs uppercase shadow-xl hover:bg-blue-700 transition-all">Print</button>
-              <button onClick={handleWhatsAppShare} className="flex-1 md:flex-none bg-green-600 px-4 py-3 rounded-xl font-black text-[10px] md:text-xs uppercase shadow-xl hover:bg-green-700 transition-all">WhatsApp</button>
+              <button onClick={() => window.print()} className="flex-1 md:flex-none bg-blue-600 px-6 py-3 rounded-xl font-black text-xs uppercase shadow-xl hover:bg-blue-700">Print Bill</button>
+              <button onClick={handleWhatsAppShare} className="flex-1 md:flex-none bg-green-600 px-6 py-3 rounded-xl font-black text-xs uppercase shadow-xl hover:bg-green-700">WhatsApp</button>
             </div>
             
             <div className="flex gap-2 w-full md:w-auto">
               {!isDuplicate && (
                 <>
-                  <button onClick={() => { setAutoCheckout(false); setShowAddPayment(true); }} className="flex-1 md:flex-none bg-white/10 px-3 md:px-4 py-3 rounded-xl font-black text-[9px] md:text-xs uppercase hover:bg-white/20 transition-all">Advance</button>
-                  <button onClick={() => setShowAddCharge(true)} className="flex-1 md:flex-none bg-white/10 px-3 md:px-4 py-3 rounded-xl font-black text-[9px] md:text-xs uppercase hover:bg-white/20 transition-all">Service</button>
-                  <button onClick={handleCheckout} className="flex-1 md:flex-none bg-red-600 px-4 md:px-6 py-3 rounded-xl font-black text-[10px] md:text-xs uppercase shadow-xl hover:bg-red-700">Checkout</button>
+                  <button onClick={() => { setAutoCheckout(false); setShowAddPayment(true); }} className="flex-1 md:flex-none bg-white/10 px-4 py-3 rounded-xl font-black text-xs uppercase hover:bg-white/20">Payment</button>
+                  <button onClick={() => setShowAddCharge(true)} className="flex-1 md:flex-none bg-white/10 px-4 py-3 rounded-xl font-black text-xs uppercase hover:bg-white/20">Charge</button>
+                  <button onClick={handleCheckout} className="flex-1 md:flex-none bg-red-600 px-8 py-3 rounded-xl font-black text-xs uppercase shadow-xl hover:bg-red-700">Settlement</button>
                 </>
               )}
             </div>
           </div>
         )}
 
-        {/* Modals for Charge/Payment */}
         {showAddCharge && (
           <FolioModal title="Service Entry" onClose={() => setShowAddCharge(false)}>
             <div className="space-y-4 md:space-y-6 text-black">
@@ -416,17 +398,17 @@ const StayManagement: React.FC<StayManagementProps> = ({
   );
 };
 
-const InfoRow = ({ label, value, height = "h-7" }: { label: string, value: string, height?: string }) => (
-  <div className={`flex items-center px-2 ${height}`}>
-    <span className="font-bold uppercase w-20 md:w-32 shrink-0 opacity-50">{label}</span>
-    <span className="text-gray-400 px-1">:</span>
-    <span className="font-black uppercase truncate">{value || ''}</span>
+const InfoRow = ({ label, value, height = "h-8" }: { label: string, value: string, height?: string }) => (
+  <div className={`flex items-center px-4 ${height}`}>
+    <span className="font-bold uppercase w-24 md:w-40 shrink-0 text-slate-500">{label}</span>
+    <span className="text-gray-300 px-2">:</span>
+    <span className="font-black uppercase truncate text-slate-900">{value || 'N/A'}</span>
   </div>
 );
 
 const FolioModal = ({ title, children, onClose }: any) => (
   <div className="fixed inset-0 z-[220] bg-slate-900/80 flex items-center justify-center p-4">
-    <div className="bg-white rounded-[2rem] md:rounded-3xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-300">
+    <div className="bg-white rounded-[2rem] md:rounded-3xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-300 shadow-2xl">
       <div className="bg-slate-900 p-6 md:p-8 text-white text-center font-black uppercase tracking-widest text-[10px] md:text-xs">{title}</div>
       <div className="p-6 md:p-10">{children}</div>
     </div>
