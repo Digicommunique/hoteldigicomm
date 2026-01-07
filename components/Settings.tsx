@@ -80,7 +80,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
   };
 
   const handleForceCloudPull = async () => {
-    if (!window.confirm("SYNC WARNING: This will overwrite ALL data in this browser with the current data from Supabase. Use this to sync multiple browsers. Proceed?")) return;
+    if (!window.confirm("FORCE SYNC: This will wipe this browser's local memory and pull EVERYTHING from the cloud. Use this to fix discrepancies. Proceed?")) return;
     
     setIsCloudPulling(true);
     const cloudData = await fetchAllFromCloud();
@@ -93,10 +93,10 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
         await db.financialTransactions.clear(); await db.financialTransactions.bulkPut(cloudData.transactions);
         await db.groups.clear(); await db.groups.bulkPut(cloudData.groups);
       });
-      alert("Sync Complete! The application will now reload to apply changes.");
+      alert("Synchronization Complete! The app will now reload.");
       window.location.reload();
     } else {
-      alert("Cloud Pull Failed. Check your connection or RLS Policies.");
+      alert("Cloud Pull Failed. Most likely an RLS Policy error in Supabase.");
     }
     setIsCloudPulling(false);
   };
@@ -110,7 +110,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
             <SubTab active={activeSubTab === 'ROOMS'} label="Inventory" onClick={() => setActiveSubTab('ROOMS')} />
             <SubTab active={activeSubTab === 'AGENTS'} label="Agents" onClick={() => setActiveSubTab('AGENTS')} />
             <SubTab active={activeSubTab === 'SECURITY'} label="Security" onClick={() => setActiveSubTab('SECURITY')} />
-            <SubTab active={activeSubTab === 'CLOUD'} label="Cloud" onClick={() => setActiveSubTab('CLOUD')} />
+            <SubTab active={activeSubTab === 'CLOUD'} label="Sync Fix" onClick={() => setActiveSubTab('CLOUD')} />
           </div>
         </div>
 
@@ -124,34 +124,23 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
                 <Input label="GSTIN" value={tempSettings.gstNumber || ''} onChange={v => handleUpdate('gstNumber', v)} />
                 <Input label="HSN Code" value={tempSettings.hsnCode || ''} onChange={v => handleUpdate('hsnCode', v)} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="License (C-Form)" value={tempSettings.licenseNumber || ''} onChange={v => handleUpdate('licenseNumber', v)} />
-                <Input label="UPI ID" value={tempSettings.upiId || ''} onChange={v => handleUpdate('upiId', v)} />
-              </div>
+              <Input label="UPI ID" value={tempSettings.upiId || ''} onChange={v => handleUpdate('upiId', v)} />
               <Input label="Default Tax (%)" type="number" value={tempSettings.taxRate?.toString() || '12'} onChange={v => handleUpdate('taxRate', parseFloat(v))} />
             </section>
             
             <section className="bg-white p-6 md:p-8 rounded-3xl border shadow-sm space-y-6 h-fit">
-              <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4 text-slate-400">System Tools</h3>
+              <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4 text-slate-400">System Management</h3>
               <div className="space-y-3">
-                <button onClick={exportDatabase} className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-black transition-all">Download Full Backup</button>
-                <button onClick={() => document.getElementById('restore-input')?.click()} className="w-full bg-white text-blue-900 border-2 border-blue-100 py-4 rounded-2xl font-black text-xs uppercase hover:bg-blue-50 transition-all">Restore from Backup</button>
+                <button onClick={exportDatabase} className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-black transition-all">Download Local Backup</button>
+                <button onClick={() => document.getElementById('restore-input')?.click()} className="w-full bg-white text-blue-900 border-2 border-blue-100 py-4 rounded-2xl font-black text-xs uppercase hover:bg-blue-50 transition-all">Restore from File</button>
                 <input id="restore-input" type="file" accept=".json" onChange={handleRestore} className="hidden" />
               </div>
               
               {['SUPERADMIN', 'ADMIN'].includes(currentRole) && (
                 <div className="pt-6 border-t space-y-4">
-                  <h3 className="font-black uppercase text-[10px] text-red-600 mb-2">Danger Zone</h3>
-                  <div className="p-4 bg-orange-50 border-2 border-orange-100 rounded-2xl space-y-3">
-                    <p className="text-[9px] font-black uppercase text-orange-800">Operational Reset</p>
-                    <p className="text-[8px] font-bold text-orange-600 leading-tight">Clears all Bookings, Guests, and Bills. Keeps your Room inventory and Branding.</p>
-                    <button onClick={handleClearOps} className="w-full bg-white text-orange-600 border-2 border-orange-200 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-orange-600 hover:text-white transition-all">Clear Records Only</button>
-                  </div>
-                  <div className="p-4 bg-red-50 border-2 border-red-100 rounded-2xl space-y-3">
-                    <p className="text-[9px] font-black uppercase text-red-800">Factory Reset</p>
-                    <p className="text-[8px] font-bold text-red-600 leading-tight">Wipes everything. Deletes Rooms, Settings, and all Data.</p>
-                    <button onClick={handleResetData} className="w-full bg-red-600 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all">Wipe All Data</button>
-                  </div>
+                  <h3 className="font-black uppercase text-[10px] text-red-600 mb-2">Danger Area</h3>
+                  <button onClick={handleClearOps} className="w-full bg-white text-orange-600 border-2 border-orange-200 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-orange-600 hover:text-white transition-all">Clear Records Only</button>
+                  <button onClick={handleResetData} className="w-full bg-red-600 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all">Factory Reset All</button>
                 </div>
               )}
             </section>
@@ -170,7 +159,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
                     {tempSettings.roomTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
-                <Input label="Base Price" value={newRoom.price?.toString() || ''} onChange={v => setNewRoom({...newRoom, price: parseFloat(v) || 0})} />
+                <Input label="Base Rate" value={newRoom.price?.toString() || ''} onChange={v => setNewRoom({...newRoom, price: parseFloat(v) || 0})} />
                 <button onClick={addRoom} className="bg-blue-600 text-white py-4 rounded-2xl font-black text-xs shadow-lg uppercase hover:bg-black transition-all">Add Unit</button>
               </div>
             </section>
@@ -188,7 +177,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
                            <td className="p-5 text-blue-600">{r.type}</td>
                            <td className="p-5 text-right font-black">₹{r.price}</td>
                            <td className="p-5 text-center">
-                             <button onClick={() => { if(confirm(`Confirm delete Room ${r.number}?`)) onDeleteRoom(r.id); }} className="text-red-500 text-[9px] font-black uppercase hover:underline">Remove</button>
+                             <button onClick={() => { if(confirm(`Delete Room ${r.number}?`)) onDeleteRoom(r.id); }} className="text-red-500 text-[9px] font-black uppercase hover:underline">Remove</button>
                            </td>
                         </tr>
                      ))}
@@ -203,7 +192,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
             <section className="bg-white p-6 md:p-8 rounded-3xl border shadow-sm space-y-6">
               <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4">Agent Configuration</h3>
               <div className="space-y-4">
-                <Input label="Agent/Portal Name" value={newAgent.name} onChange={v => setNewAgent({...newAgent, name: v})} />
+                <Input label="Agent Name" value={newAgent.name} onChange={v => setNewAgent({...newAgent, name: v})} />
                 <Input label="Commission (%)" type="number" value={newAgent.commission.toString()} onChange={v => setNewAgent({...newAgent, commission: parseFloat(v) || 0})} />
                 <button onClick={addAgent} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg">Add Agent</button>
               </div>
@@ -236,8 +225,6 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
                 <Input label="Superadmin Master" value={tempSettings.superadminPassword || ''} onChange={v => handleUpdate('superadminPassword', v)} type="password" />
                 <Input label="Admin Password" value={tempSettings.adminPassword || ''} onChange={v => handleUpdate('adminPassword', v)} type="password" />
                 <Input label="Receptionist Desk" value={tempSettings.receptionistPassword || ''} onChange={v => handleUpdate('receptionistPassword', v)} type="password" />
-                <Input label="Accounts Dept" value={tempSettings.accountantPassword || ''} onChange={v => handleUpdate('accountantPassword', v)} type="password" />
-                <Input label="Housekeeping Super" value={tempSettings.supervisorPassword || ''} onChange={v => handleUpdate('supervisorPassword', v)} type="password" />
               </div>
             </section>
           </div>
@@ -248,105 +235,72 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
              <div className="flex items-center gap-6 border-b pb-8">
                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0 text-blue-600">☁️</div>
                <div>
-                 <h2 className="text-2xl md:text-3xl font-black text-black uppercase tracking-tighter leading-tight">Supabase Multi-Browser Sync</h2>
-                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Real-time Data Orchestration</p>
+                 <h2 className="text-2xl md:text-3xl font-black text-black uppercase tracking-tighter leading-tight">Fix Multi-Browser Sync</h2>
+                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Real-time Cloud Orchestration</p>
                </div>
+             </div>
+
+             <div className="bg-red-50 p-6 md:p-10 rounded-[2rem] border-2 border-red-200 space-y-6">
+                <div className="flex items-center gap-3">
+                   <div className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center text-xl font-black">!</div>
+                   <div>
+                     <h4 className="text-lg font-black uppercase text-red-900 leading-tight">Why Browser A is different from Browser B?</h4>
+                     <p className="text-[10px] font-bold text-red-700 uppercase">You must run the SQL script below to enable FULL data replication.</p>
+                   </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border-2 border-red-100 space-y-4">
+                   <p className="text-xs font-bold text-slate-700 leading-relaxed">
+                     By default, Supabase only sends "ID" changes. To see <b>Room Numbers</b> and <b>Guest Names</b> update in real-time on other browsers, run this in your <b>Supabase SQL Editor</b>:
+                   </p>
+                   <div className="relative">
+                     <pre className="bg-gray-50 p-6 rounded-xl border font-mono text-[10px] text-red-900 overflow-x-auto shadow-inner select-all leading-relaxed whitespace-pre-wrap max-h-96 custom-scrollbar">
+{`-- FIX INCONSISTENT DATA (Run in SQL Editor) --
+
+-- 1. Ensure RLS is active and permissive
+ALTER TABLE IF EXISTS "rooms" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "bookings" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "guests" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "transactions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "settings" ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow Public" ON "rooms";
+DROP POLICY IF EXISTS "Allow Public" ON "bookings";
+DROP POLICY IF EXISTS "Allow Public" ON "guests";
+DROP POLICY IF EXISTS "Allow Public" ON "transactions";
+DROP POLICY IF EXISTS "Allow Public" ON "settings";
+
+CREATE POLICY "Allow Public" ON "rooms" FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow Public" ON "bookings" FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow Public" ON "guests" FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow Public" ON "transactions" FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow Public" ON "settings" FOR ALL USING (true) WITH CHECK (true);
+
+-- 2. ENABLE FULL REPLICATION (Crucial for multi-browser sync)
+ALTER TABLE "rooms" REPLICA IDENTITY FULL;
+ALTER TABLE "bookings" REPLICA IDENTITY FULL;
+ALTER TABLE "guests" REPLICA IDENTITY FULL;
+ALTER TABLE "transactions" REPLICA IDENTITY FULL;
+ALTER TABLE "settings" REPLICA IDENTITY FULL;
+
+-- 3. Clear Cache
+NOTIFY pgrst, 'reload schema';`}
+                     </pre>
+                   </div>
+                </div>
              </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-8 bg-blue-50 border-2 border-blue-100 rounded-[2rem] space-y-4">
-                  <h4 className="text-sm font-black uppercase text-blue-900">Sync Browser Data</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">If data is missing, pull the latest records from the cloud manually.</p>
+                  <h4 className="text-sm font-black uppercase text-blue-900">Force Pull from Cloud</h4>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">If Browser B is still showing old data, click this to force a full refresh from the cloud database.</p>
                   <button onClick={handleForceCloudPull} disabled={isCloudPulling} className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-black transition-all">
-                    {isCloudPulling ? 'Synchronizing...' : 'Pull Latest from Cloud'}
+                    {isCloudPulling ? 'Synchronizing...' : 'Full Sync & Reload'}
                   </button>
                 </div>
-
-                <div className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2rem] space-y-4">
-                   <h4 className="text-sm font-black uppercase text-slate-900">Push Refresh</h4>
-                   <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">Force upload local settings if cloud status shows 'Error'.</p>
-                   <button onClick={async () => {
-                      const success = await pushToCloud('settings', [settings]);
-                      if (success) alert('Local settings pushed to cloud.');
-                    }} className="w-full bg-white text-slate-900 border-2 border-slate-200 py-4 rounded-2xl font-black text-xs uppercase">Force Push Settings</button>
-                </div>
-             </div>
-             
-             <div className="p-4 md:p-10 bg-red-50 border-2 border-red-200 rounded-[2rem] space-y-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center font-black animate-pulse">!</div>
-                  <h4 className="text-lg font-black uppercase text-red-900 leading-tight">STOP: FIXING SYNTAX ERROR 42601</h4>
-                </div>
-                
-                <div className="bg-white p-6 rounded-3xl border-2 border-red-200 space-y-4">
-                  <h5 className="font-black text-xs uppercase text-red-600">Why are you seeing "Syntax Error near TABLE"?</h5>
-                  <p className="text-[11px] font-bold text-slate-700 leading-relaxed">
-                    You are likely pasting the code into the <span className="underline decoration-red-500 decoration-2">RLS Policy Editor</span>. 
-                    The policy editor <b>only</b> accepts simple rules (like "true").
-                    To fix your database, you must use the <b>SQL Editor</b> instead.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <h5 className="font-black text-xs uppercase text-slate-900 border-l-4 border-blue-600 pl-3">Step 1: Go to the right place</h5>
-                    <ol className="text-[11px] font-bold text-slate-600 space-y-3 list-decimal ml-5">
-                      <li>Close the "Create Policy" modal you are in.</li>
-                      <li>On the left sidebar, click the <b>SQL Editor</b> icon (looks like <code className="bg-slate-200 px-1 px-0.5 rounded">&gt;_</code>).</li>
-                      <li>Click <b>"+ New Query"</b> at the top.</li>
-                    </ol>
-                  </div>
-                  <div className="space-y-4">
-                    <h5 className="font-black text-xs uppercase text-slate-900 border-l-4 border-green-600 pl-3">Step 2: Run this script</h5>
-                    <p className="text-[10px] text-slate-500 font-bold italic">Copy the code below, paste it into the new query window, and click "Run".</p>
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <pre className="bg-white p-6 rounded-2xl border-2 border-red-100 font-mono text-[10px] text-red-900 overflow-x-auto shadow-inner select-all leading-relaxed whitespace-pre-wrap max-h-96 custom-scrollbar">
-{`-- PASTE THIS ONLY IN THE "SQL EDITOR" --
--- NOT THE POLICY CREATION DIALOG --
-
--- 1. ENABLE RLS
-ALTER TABLE IF EXISTS "rooms" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "guests" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "bookings" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "transactions" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "groups" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS "settings" ENABLE ROW LEVEL SECURITY;
-
--- 2. CREATE POLICIES (Fixes 42501)
-DROP POLICY IF EXISTS "Allow Public" ON "rooms";
-DROP POLICY IF EXISTS "Allow Public" ON "guests";
-DROP POLICY IF EXISTS "Allow Public" ON "bookings";
-DROP POLICY IF EXISTS "Allow Public" ON "transactions";
-DROP POLICY IF EXISTS "Allow Public" ON "groups";
-DROP POLICY IF EXISTS "Allow Public" ON "settings";
-
-CREATE POLICY "Allow Public" ON "rooms" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow Public" ON "guests" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow Public" ON "bookings" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow Public" ON "transactions" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow Public" ON "groups" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow Public" ON "settings" FOR ALL USING (true) WITH CHECK (true);
-
--- 3. REFRESH
-NOTIFY pgrst, 'reload schema';`}
-                  </pre>
-                </div>
-             </div>
-
-             <div className="p-4 md:p-10 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] space-y-6">
-                <p className="text-xs text-black font-black uppercase">Database Maintenance (Add Columns)</p>
-                <div className="relative">
-                  <pre className="bg-white p-6 rounded-2xl border font-mono text-[10px] text-blue-900 overflow-x-auto shadow-inner select-all leading-relaxed whitespace-pre-wrap max-h-40 custom-scrollbar">
-{`ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "adults" INTEGER DEFAULT 2;
-ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "totalPax" INTEGER DEFAULT 2;
-ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "extraOccupants" JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "superadminPassword" TEXT;
-ALTER TABLE IF EXISTS "settings" ADD COLUMN IF NOT EXISTS "receptionistPassword" TEXT;
-NOTIFY pgrst, 'reload schema';`}
-                  </pre>
+                <div className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2rem] space-y-4 flex flex-col justify-center">
+                  <h4 className="text-sm font-black uppercase text-slate-900">Real-time Channel</h4>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase leading-tight">State: Check the "Cloud" indicator in the footer. If it's 🟢, you are receiving updates.</p>
                 </div>
              </div>
           </div>
