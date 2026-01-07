@@ -18,7 +18,9 @@ export async function pushToCloud(tableName: string, data: any) {
       .upsert(data, { onConflict: 'id' });
     
     if (error) {
-      if (error.message.includes('schema cache') || error.message.includes('column') || error.code === '42703') {
+      if (error.code === '42501') {
+        console.error(`[Security Error] Permission Denied (42501) on table "${tableName}". Check RLS Policies in SQL Editor.`);
+      } else if (error.message.includes('schema cache') || error.message.includes('column') || error.code === '42703') {
         console.warn(`[Supabase Schema Sync] Table: ${tableName} requires a remote schema refresh.`);
       } else {
         console.error(`Supabase Sync Error [${tableName}]:`, error.message, error.code);
@@ -45,6 +47,11 @@ export async function fetchAllFromCloud() {
       supabase.from('settings').select('*').eq('id', 'primary').maybeSingle(),
       supabase.from('groups').select('*')
     ]);
+
+    if (rooms.error?.code === '42501') {
+      console.error("Critical Cloud Pull Error: 42501 (RLS Policy blocking read access). Please check settings.");
+      return null;
+    }
 
     return {
       rooms: rooms.data || [],
