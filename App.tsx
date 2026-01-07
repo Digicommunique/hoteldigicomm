@@ -101,44 +101,44 @@ const App: React.FC = () => {
           db.settings.get('primary')
         ]);
 
-        if (!r || r.length === 0) {
-          const { data: cloudRooms } = await supabase.from('rooms').select('*');
-          const { data: cloudGuests } = await supabase.from('guests').select('*');
-          const { data: cloudBookings } = await supabase.from('bookings').select('*');
-          const { data: cloudTransactions } = await supabase.from('transactions').select('*');
+        // If local is empty, try to fetch everything from cloud
+        if (!set) {
           const { data: cloudSettings } = await supabase.from('settings').select('*').eq('id', 'primary').maybeSingle();
-          const { data: cloudGroups } = await supabase.from('groups').select('*');
+          if (cloudSettings) {
+             set = cloudSettings;
+             await db.settings.put(set);
+             // Since we have settings in cloud, fetch other data too
+             const { data: cloudRooms } = await supabase.from('rooms').select('*');
+             const { data: cloudGuests } = await supabase.from('guests').select('*');
+             const { data: cloudBookings } = await supabase.from('bookings').select('*');
+             const { data: cloudTransactions } = await supabase.from('transactions').select('*');
+             const { data: cloudGroups } = await supabase.from('groups').select('*');
 
-          if (cloudRooms && cloudRooms.length > 0) {
-            r = cloudRooms; await db.rooms.bulkPut(r);
-            if (cloudGuests) { g = cloudGuests; await db.guests.bulkPut(g); }
-            if (cloudBookings) { b = cloudBookings; await db.bookings.bulkPut(b); }
-            if (cloudTransactions) { t = cloudTransactions; await db.financialTransactions.bulkPut(t); }
-            if (cloudGroups) { gr = cloudGroups; await db.groups.bulkPut(gr); }
-            if (cloudSettings) { set = cloudSettings; await db.settings.put(set); }
+             if (cloudRooms) { r = cloudRooms; await db.rooms.bulkPut(r); }
+             if (cloudGuests) { g = cloudGuests; await db.guests.bulkPut(g); }
+             if (cloudBookings) { b = cloudBookings; await db.bookings.bulkPut(b); }
+             if (cloudTransactions) { t = cloudTransactions; await db.financialTransactions.bulkPut(t); }
+             if (cloudGroups) { gr = cloudGroups; await db.groups.bulkPut(gr); }
           }
         }
 
-        if (r && r.length > 0) {
-          setRooms(r);
-        } else {
+        // If still no settings after cloud check, it's a fresh install
+        if (!set) {
+          await db.settings.put({ ...settings });
+          await pushToCloud('settings', [{ ...settings }]);
           await db.rooms.bulkPut(INITIAL_ROOMS);
-          setRooms(INITIAL_ROOMS);
           await pushToCloud('rooms', INITIAL_ROOMS);
+          setRooms(INITIAL_ROOMS);
+          set = settings;
+        } else {
+          setRooms(r || []);
         }
         
         setGuests(g || []);
         setBookings(b || []);
         setTransactions(t || []);
         setGroups(gr || []);
-        
-        if (set) {
-          if (!set.superadminPassword) set.superadminPassword = 'Durgamaa@18';
-          setSettings(set);
-        } else {
-          await db.settings.put({ ...settings });
-          await pushToCloud('settings', { ...settings });
-        }
+        setSettings(set);
         
         setIsLoading(false);
       } catch (error) {
@@ -173,7 +173,31 @@ const App: React.FC = () => {
     }
   };
 
-  const updateRooms = (newRooms: Room[]) => { setRooms([...newRooms]); return syncToDB(db.rooms, newRooms, 'rooms'); };
+  const updateRooms = (newRooms: Room[]) => { 
+    setRooms([...newRooms]); 
+    return syncToDB(db.rooms, newRooms, 'rooms'); 
+  };
+
+  const deleteRoom = async (roomId: string) => {
+    try {
+      // 1. Update State
+      setRooms(prev => prev.filter(r => r.id !== roomId));
+      
+      // 2. Delete from Local DB
+      await db.rooms.delete(roomId);
+      
+      // 3. Delete from Cloud
+      const { error } = await supabase.from('rooms').delete().eq('id', roomId);
+      if (error) throw error;
+      
+      setSyncStatus('OK');
+      return true;
+    } catch (err) {
+      console.error("Failed to delete room:", err);
+      setSyncStatus('ERROR');
+      return false;
+    }
+  };
   
   const updateGuests = async (newGuests: Guest[]) => { 
     setGuests([...newGuests]); 
@@ -450,7 +474,7 @@ const App: React.FC = () => {
               case 'GROUP': return <GroupModule groups={groups} setGroups={updateGroups} rooms={rooms} bookings={bookings} setBookings={updateBookings} guests={guests} setGuests={updateGuests} setRooms={updateRooms} onAddTransaction={(tx) => updateTransactions([...transactions, tx])} />;
               case 'REPORTS': return <Reports bookings={bookings} guests={guests} rooms={rooms} settings={settings} transactions={transactions} shiftLogs={[]} cleaningLogs={[]} quotations={[]} />;
               case 'ACCOUNTING': return <Accounting transactions={transactions} setTransactions={updateTransactions} guests={guests} bookings={bookings} quotations={[]} setQuotations={()=>{}} settings={settings} />;
-              case 'SETTINGS': return <Settings settings={settings} setSettings={updateSettings} rooms={rooms} setRooms={updateRooms} currentRole={currentUserRole} />;
+              case 'SETTINGS': return <Settings settings={settings} setSettings={updateSettings} rooms={rooms} onDeleteRoom={deleteRoom} setRooms={updateRooms} currentRole={currentUserRole} />;
               default: return (
                 <div className="p-4 md:p-6 pb-32 text-black">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 no-print gap-4">

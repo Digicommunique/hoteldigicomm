@@ -7,11 +7,12 @@ interface SettingsProps {
   settings: HostelSettings;
   setSettings: (settings: HostelSettings) => void;
   rooms: Room[];
+  onDeleteRoom: (roomId: string) => Promise<boolean>;
   setRooms: (rooms: Room[]) => void;
   currentRole: UserRole;
 }
 
-const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, setRooms, currentRole }) => {
+const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDeleteRoom, setRooms, currentRole }) => {
   const [activeSubTab, setActiveSubTab] = useState<'GENERAL' | 'ROOMS' | 'AGENTS' | 'SECURITY' | 'CLOUD'>('GENERAL');
   const [tempSettings, setTempSettings] = useState<HostelSettings>(settings);
   const [newRoom, setNewRoom] = useState<Partial<Room>>({ number: '', floor: 1, type: settings.roomTypes[0] || '', price: 0 });
@@ -34,8 +35,14 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, setRo
 
   const addAgent = () => {
     if (!newAgent.name) return;
-    handleUpdate('agents', [...(tempSettings.agents || []), newAgent]);
+    const updatedAgents = [...(tempSettings.agents || []), newAgent];
+    handleUpdate('agents', updatedAgents);
     setNewAgent({ name: '', commission: 0 });
+  };
+
+  const removeAgent = (name: string) => {
+    const updatedAgents = (tempSettings.agents || []).filter(a => a.name !== name);
+    handleUpdate('agents', updatedAgents);
   };
 
   const handleResetData = async () => {
@@ -118,7 +125,16 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, setRo
                            <td className="p-5 font-black text-lg">{r.number}</td>
                            <td className="p-5 text-blue-600">{r.type}</td>
                            <td className="p-5 text-right font-black">₹{r.price}</td>
-                           <td className="p-5 text-center"><button onClick={() => setRooms(rooms.filter(rm => rm.id !== r.id))} className="text-red-500 text-[9px] font-black uppercase hover:underline">Remove</button></td>
+                           <td className="p-5 text-center">
+                             <button 
+                                onClick={() => {
+                                  if(confirm(`Confirm delete Room ${r.number}?`)) onDeleteRoom(r.id);
+                                }} 
+                                className="text-red-500 text-[9px] font-black uppercase hover:underline"
+                             >
+                               Remove
+                             </button>
+                           </td>
                         </tr>
                      ))}
                   </tbody>
@@ -146,7 +162,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, setRo
                       <p className="font-black text-xs uppercase">{agent.name}</p>
                       <p className="text-[10px] font-bold text-blue-600 uppercase">{agent.commission}% Commission</p>
                     </div>
-                    <button onClick={() => handleUpdate('agents', tempSettings.agents.filter(a => a.name !== agent.name))} className="text-red-400 text-[9px] font-black uppercase">Remove</button>
+                    <button onClick={() => removeAgent(agent.name)} className="text-red-400 text-[9px] font-black uppercase">Remove</button>
                   </div>
                 ))}
                 {(!tempSettings.agents || tempSettings.agents.length === 0) && (
