@@ -16,6 +16,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, settings }) => {
     e.preventDefault();
     
     let correctPassword = settings.adminPassword || 'admin';
+    if (selectedRole === 'SUPERADMIN') correctPassword = settings.superadminPassword || 'Durgamaa@18';
     if (selectedRole === 'RECEPTIONIST') correctPassword = settings.receptionistPassword || settings.adminPassword || 'admin';
     if (selectedRole === 'ACCOUNTANT') correctPassword = settings.accountantPassword || settings.adminPassword || 'admin';
     if (selectedRole === 'SUPERVISOR') correctPassword = settings.supervisorPassword || settings.adminPassword || 'admin';
@@ -40,12 +41,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, settings }) => {
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Select User Role</label>
             <div className="grid grid-cols-2 gap-2">
-              {(['ADMIN', 'RECEPTIONIST', 'ACCOUNTANT', 'SUPERVISOR'] as UserRole[]).map((role) => (
+              {(['SUPERADMIN', 'ADMIN', 'RECEPTIONIST', 'ACCOUNTANT', 'SUPERVISOR'] as UserRole[]).map((role) => (
                 <button
                   key={role}
                   type="button"
                   onClick={() => setSelectedRole(role)}
-                  className={`p-3 rounded-xl font-black text-[10px] uppercase border-2 transition-all ${selectedRole === role ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}
+                  className={`p-3 rounded-xl font-black text-[10px] uppercase border-2 transition-all ${selectedRole === role ? (role === 'SUPERADMIN' ? 'bg-orange-500 border-orange-500 text-white' : 'bg-blue-600 border-blue-600 text-white shadow-lg') : 'bg-gray-50 border-gray-100 text-gray-400'}`}
                 >
                   {role}
                 </button>

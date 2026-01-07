@@ -18,7 +18,12 @@ export async function pushToCloud(tableName: string, data: any) {
       .upsert(data, { onConflict: 'id' });
     
     if (error) {
-      console.error(`Supabase Sync Error [${tableName}]:`, error.message);
+      if (error.message.includes('schema cache') || error.message.includes('column') || error.code === '42703') {
+        console.warn(`[Supabase Schema Sync] Table: ${tableName} requires a remote schema refresh.`);
+        console.warn(`If new columns were added recently, please go to Settings > Cloud Sync and apply the SQL script provided.`);
+      } else {
+        console.error(`Supabase Sync Error [${tableName}]:`, error.message, error.code);
+      }
       return false;
     }
     return true;

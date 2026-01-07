@@ -9,20 +9,20 @@ export enum RoomStatus {
   STAFF_BLOCK = 'STAFF_BLOCK'
 }
 
-export type UserRole = 'ADMIN' | 'RECEPTIONIST' | 'ACCOUNTANT' | 'SUPERVISOR';
+export enum RoomType {
+  DELUXE = 'DELUXE ROOM',
+  BUDGET = 'BUDGET ROOM',
+  STANDARD = 'STANDARD ROOM',
+  AC_FAMILY = 'AC FAMILY ROOM'
+}
+
+export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'RECEPTIONIST' | 'ACCOUNTANT' | 'SUPERVISOR';
 
 export interface User {
   id: string;
   username: string;
   role: UserRole;
   password?: string;
-}
-
-export enum RoomType {
-  DELUXE = 'DELUXE ROOM',
-  BUDGET = 'BUDGET ROOM',
-  STANDARD = 'STANDARD ROOM',
-  AC_FAMILY = 'AC FAMILY ROOM'
 }
 
 export interface RoomInventoryItem {
@@ -34,15 +34,53 @@ export interface RoomInventoryItem {
 export interface Guest {
   id: string;
   name: string;
+  surName?: string;
+  givenName?: string;
+  gender?: 'Male' | 'Female' | 'Other';
+  dob?: string;
   phone: string;
+  idNumber?: string;
   email: string;
   address: string;
   city: string;
   state: string;
   nationality: string;
+  country?: string;
   gstin?: string;
+  
+  // C-Form Specific Fields
+  arrivalFrom?: string;
+  nextDestination?: string;
+  arrivalInIndiaDate?: string;
+  arrivalInIndiaTime?: string;
+  hotelArrivalDate?: string;
+  hotelArrivalTime?: string;
+  hotelDepartureDate?: string;
+  hotelDepartureTime?: string;
+  
+  embassyCountry?: string;
   passportNo?: string;
+  passportPlaceOfIssue?: string;
+  passportDateOfIssue?: string;
+  passportDateOfExpiry?: string;
+  
   visaNo?: string;
+  visaPlaceOfIssue?: string;
+  visaDateOfIssue?: string;
+  visaDateOfExpiry?: string;
+  visaType?: string;
+  
+  residentialAddress?: string;
+  addressInIndia?: string;
+  daysStayedInIndia?: number;
+  purposeOfVisit?: string;
+  isEmployedInIndia?: boolean;
+  contactNoInIndia?: string;
+  cellNoInIndia?: string;
+  contactNoResidingCountry?: string;
+  remarks?: string;
+  applicationId?: string;
+
   documents: {
     aadharFront?: string;
     aadharBack?: string;
@@ -51,6 +89,19 @@ export interface Guest {
     passportBack?: string;
     voterId?: string;
     drivingLicense?: string;
+    photo?: string;
+  };
+}
+
+export interface ExtraOccupant {
+  id: string;
+  name: string;
+  phone?: string;
+  idNumber?: string;
+  documents: {
+    aadharFront?: string;
+    aadharBack?: string;
+    pan?: string;
     photo?: string;
   };
 }
@@ -112,34 +163,6 @@ export interface Transaction {
   entityName?: string;
 }
 
-export interface RoomShiftLog {
-  id: string;
-  bookingId: string;
-  guestName: string;
-  fromRoom: string;
-  toRoom: string;
-  date: string;
-  reason: string;
-}
-
-export interface CleaningLog {
-  id: string;
-  roomId: string;
-  staffName: string;
-  date: string;
-  status: 'CLEANED' | 'IN_PROGRESS';
-}
-
-export interface Quotation {
-  id: string;
-  date: string;
-  guestName: string;
-  validUntil: string;
-  items: { description: string; price: number; qty: number }[];
-  total: number;
-  status: 'SUBMITTED' | 'ACCEPTED' | 'REJECTED';
-}
-
 export interface Booking {
   id: string;
   bookingNo: string;
@@ -155,18 +178,16 @@ export interface Booking {
   payments: Payment[];
   basePrice: number;
   discount: number;
-  paxCount?: number;
-  placeOfSupply?: string;
-  mealPlan?: string;
-  discountPercent?: number;
-  company?: string;
-  bizSource?: string;
-  agent?: string;
-  remarks?: string;
   purpose?: string;
-  groupBookingId?: string;
-  isComplementary?: boolean;
-  agentCommission?: number;
+  mealPlan?: string;
+  agent?: string;
+  adults?: number;
+  children?: number;
+  kids?: number;
+  others?: number;
+  totalPax?: number;
+  extraBed?: boolean;
+  extraOccupants?: ExtraOccupant[];
 }
 
 export interface Room {
@@ -186,6 +207,7 @@ export interface AgentConfig {
 }
 
 export interface HostelSettings {
+  id: string;
   name: string;
   address: string;
   logo?: string;
@@ -196,8 +218,33 @@ export interface HostelSettings {
   taxRate?: number;
   hsnCode?: string;
   upiId?: string;
+  licenseNumber?: string; // For C-Form
+  superadminPassword?: string;
   adminPassword?: string;
   receptionistPassword?: string;
   accountantPassword?: string;
   supervisorPassword?: string;
+}
+
+export interface RoomShiftLog {
+  id: string;
+  roomId: string;
+  fromStatus: RoomStatus;
+  toStatus: RoomStatus;
+  timestamp: string;
+  userId: string;
+}
+
+export interface CleaningLog {
+  id: string;
+  roomId: string;
+  cleanedBy: string;
+  timestamp: string;
+}
+
+export interface Quotation {
+  id: string;
+  guestName: string;
+  date: string;
+  totalAmount: number;
 }

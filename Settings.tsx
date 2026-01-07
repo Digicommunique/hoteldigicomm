@@ -236,13 +236,23 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, setRo
                </div>
              </div>
              <div className="p-10 bg-blue-50 border-2 border-dashed border-blue-200 rounded-[3rem] space-y-6">
-                <p className="text-xs text-black font-black uppercase tracking-tight">Run this SQL in Supabase Editor to align your cloud schema:</p>
-                <pre className="bg-white p-6 rounded-2xl border font-mono text-[10px] text-black overflow-x-auto shadow-inner select-all leading-relaxed">
-{`-- SUPABASE SCHEMA ALIGNMENT --
-ALTER TABLE settings ADD COLUMN IF NOT EXISTS "gstNumber" TEXT, ADD COLUMN IF NOT EXISTS "taxRate" NUMERIC, ADD COLUMN IF NOT EXISTS "hsnCode" TEXT;
-ALTER TABLE transactions ADD COLUMN IF NOT EXISTS "entityName" TEXT, ADD COLUMN IF NOT EXISTS "referenceId" TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "groupId" TEXT;`}
-                </pre>
+                <p className="text-xs text-black font-black uppercase tracking-tight">Run this SQL in your Supabase SQL Editor to fix schema errors (Add missing columns):</p>
+                <div className="relative group">
+                  <pre className="bg-white p-6 rounded-2xl border font-mono text-[11px] text-blue-900 overflow-x-auto shadow-inner select-all leading-relaxed">
+{`-- FIX MISSING COLUMNS IN TRANSACTIONS --
+ALTER TABLE IF EXISTS transactions ADD COLUMN IF NOT EXISTS "entityName" TEXT;
+ALTER TABLE IF EXISTS transactions ADD COLUMN IF NOT EXISTS "referenceId" TEXT;
+
+-- FIX MISSING COLUMNS IN SETTINGS --
+ALTER TABLE IF EXISTS settings ADD COLUMN IF NOT EXISTS "gstNumber" TEXT;
+ALTER TABLE IF EXISTS settings ADD COLUMN IF NOT EXISTS "taxRate" NUMERIC;
+ALTER TABLE IF EXISTS settings ADD COLUMN IF NOT EXISTS "hsnCode" TEXT;
+
+-- FIX MISSING COLUMNS IN BOOKINGS --
+ALTER TABLE IF EXISTS bookings ADD COLUMN IF NOT EXISTS "groupId" TEXT;`}
+                  </pre>
+                  <p className="mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-widest">After running the SQL, please refresh the application to update the schema cache.</p>
+                </div>
              </div>
           </div>
         )}
