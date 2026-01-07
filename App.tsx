@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Room, RoomStatus, Guest, Booking, HostelSettings, Transaction, GroupProfile, UserRole } from './types.ts';
 import { INITIAL_ROOMS, STATUS_COLORS, GUEST_OCCUPANCY_THEMES } from './constants.tsx';
 import { db } from './services/db.ts';
@@ -55,7 +55,6 @@ const App: React.FC = () => {
   const [showReservationForm, setShowReservationForm] = useState(false);
   const [showRoomActions, setShowRoomActions] = useState(false);
   const [showBillArchive, setShowBillArchive] = useState(false);
-  const [showOldDataImport, setShowOldDataImport] = useState(false);
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'GROUP' | 'REPORTS' | 'ACCOUNTING' | 'SETTINGS'>('DASHBOARD');
 
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
@@ -63,38 +62,45 @@ const App: React.FC = () => {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const refreshFromCloud = async () => {
-    setIsSyncing(true);
+  /**
+   * Refreshes local storage and state from the Supabase cloud.
+   */
+  const refreshFromCloud = async (silent = false) => {
+    if (!silent) setIsSyncing(true);
     const cloudData = await fetchAllFromCloud();
     if (cloudData) {
-      // Fix: Property 'transaction' does not exist on type 'HotelSphereDB'. Casting to any.
       await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
         if (cloudData.settings) {
           await db.settings.put(cloudData.settings);
           setSettings(cloudData.settings);
         }
+        
+        await db.rooms.clear();
         if (cloudData.rooms.length > 0) {
-          await db.rooms.clear();
           await db.rooms.bulkPut(cloudData.rooms);
           setRooms(cloudData.rooms);
         }
+
+        await db.guests.clear();
         if (cloudData.guests.length > 0) {
-          await db.guests.clear();
           await db.guests.bulkPut(cloudData.guests);
           setGuests(cloudData.guests);
         }
+
+        await db.bookings.clear();
         if (cloudData.bookings.length > 0) {
-          await db.bookings.clear();
           await db.bookings.bulkPut(cloudData.bookings);
           setBookings(cloudData.bookings);
         }
+
+        await db.financialTransactions.clear();
         if (cloudData.transactions.length > 0) {
-          await db.financialTransactions.clear();
           await db.financialTransactions.bulkPut(cloudData.transactions);
           setTransactions(cloudData.transactions);
         }
+
+        await db.groups.clear();
         if (cloudData.groups.length > 0) {
-          await db.groups.clear();
           await db.groups.bulkPut(cloudData.groups);
           setGroups(cloudData.groups);
         }
@@ -103,8 +109,70 @@ const App: React.FC = () => {
     } else {
       setSyncStatus('ERROR');
     }
-    setIsSyncing(false);
+    if (!silent) setIsSyncing(false);
   };
+
+  /**
+   * Real-time incremental reconciliation
+   * Updates only what changed to prevent full UI reloads
+   */
+  const handleRealtimeChange = useCallback(async (payload: any, table: string) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+    
+    // Process local DB update
+    const tableMap: any = {
+      'rooms': { store: db.rooms, stateSetter: setRooms },
+      'bookings': { store: db.bookings, stateSetter: setBookings },
+      'guests': { store: db.guests, stateSetter: setGuests },
+      'transactions': { store: db.financialTransactions, stateSetter: setTransactions },
+      'groups': { store: db.groups, stateSetter: setGroups },
+      'settings': { store: db.settings, stateSetter: setSettings }
+    };
+
+    const target = tableMap[table];
+    if (!target) return;
+
+    if (eventType === 'INSERT' || eventType === 'UPDATE') {
+      await target.store.put(newRecord);
+      if (table === 'settings') {
+        setSettings(newRecord);
+      } else {
+        target.stateSetter((prev: any[]) => {
+          const idx = prev.findIndex(item => item.id === newRecord.id);
+          if (idx > -1) {
+            const next = [...prev];
+            next[idx] = newRecord;
+            return next;
+          }
+          return [...prev, newRecord];
+        });
+      }
+    } else if (eventType === 'DELETE') {
+      await target.store.delete(oldRecord.id);
+      target.stateSetter((prev: any[]) => prev.filter(item => item.id !== oldRecord.id));
+    }
+    
+    setSyncStatus('OK');
+  }, []);
+
+  useEffect(() => {
+    // POWERFUL MULTI-CHANNEL REALTIME SYNC
+    const channel = supabase
+      .channel('db-global-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, p => handleRealtimeChange(p, 'rooms'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, p => handleRealtimeChange(p, 'bookings'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guests' }, p => handleRealtimeChange(p, 'guests'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, p => handleRealtimeChange(p, 'settings'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, p => handleRealtimeChange(p, 'groups'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, p => handleRealtimeChange(p, 'transactions'))
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') console.log("HOTELSPHERE SYNC: ONLINE");
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [handleRealtimeChange]);
 
   useEffect(() => {
     const checkPublicView = async () => {
@@ -145,30 +213,26 @@ const App: React.FC = () => {
           db.settings.get('primary')
         ]);
 
-        // If local is empty or missing settings, it might be a new browser. Attempt cloud pull.
-        if (!set || r.length === 0) {
-          const cloudData = await fetchAllFromCloud();
-          if (cloudData && cloudData.settings) {
-             set = cloudData.settings;
-             r = cloudData.rooms;
-             g = cloudData.guests;
-             b = cloudData.bookings;
-             t = cloudData.transactions;
-             gr = cloudData.groups;
+        // Attempt initial sync from Cloud on first load
+        const cloudData = await fetchAllFromCloud();
+        if (cloudData && cloudData.settings) {
+           set = cloudData.settings;
+           r = cloudData.rooms;
+           g = cloudData.guests;
+           b = cloudData.bookings;
+           t = cloudData.transactions;
+           gr = cloudData.groups;
 
-             // Fix: Property 'transaction' does not exist on type 'HotelSphereDB'. Casting to any.
-             await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
-               await db.settings.put(set);
-               if (r.length > 0) await db.rooms.bulkPut(r);
-               if (g.length > 0) await db.guests.bulkPut(g);
-               if (b.length > 0) await db.bookings.bulkPut(b);
-               if (t.length > 0) await db.financialTransactions.bulkPut(t);
-               if (gr.length > 0) await db.groups.bulkPut(gr);
-             });
-          }
+           await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
+             if (set) await db.settings.put(set);
+             if (r.length > 0) await db.rooms.bulkPut(r);
+             if (g.length > 0) await db.guests.bulkPut(g);
+             if (b.length > 0) await db.bookings.bulkPut(b);
+             if (t.length > 0) await db.financialTransactions.bulkPut(t);
+             if (gr.length > 0) await db.groups.bulkPut(gr);
+           });
         }
 
-        // If still no settings after cloud check, it's a fresh install from scratch
         if (!set) {
           await db.settings.put({ ...settings });
           await pushToCloud('settings', [{ ...settings }]);
@@ -188,7 +252,7 @@ const App: React.FC = () => {
         
         setIsLoading(false);
       } catch (error) {
-        console.error("Critical error during initialization:", error);
+        console.error("Initialization error:", error);
         setRooms(INITIAL_ROOMS);
         setIsLoading(false);
       }
@@ -228,8 +292,7 @@ const App: React.FC = () => {
     try {
       setRooms(prev => prev.filter(r => r.id !== roomId));
       await db.rooms.delete(roomId);
-      const { error } = await supabase.from('rooms').delete().eq('id', roomId);
-      if (error) throw error;
+      await supabase.from('rooms').delete().eq('id', roomId);
       setSyncStatus('OK');
       return true;
     } catch (err) {
@@ -379,7 +442,7 @@ const App: React.FC = () => {
     });
     updateRooms(updatedRooms);
     setActiveBookingId(null);
-    alert(`Shift Successful: Room ${rooms.find(r=>r.id===oldRoomId)?.number} is now DIRTY. Guest moved to Room ${rooms.find(r=>r.id===newRoomId)?.number}.`);
+    alert(`Shift Successful.`);
   };
 
   if (publicBillData) {
@@ -404,7 +467,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (isPublicLoading || isLoading) return <div className="min-h-screen bg-[#003d80] flex items-center justify-center text-white font-black uppercase tracking-widest text-center px-4">HotelSphere Pro Loading...</div>;
+  if (isPublicLoading || isLoading) return <div className="min-h-screen bg-[#003d80] flex items-center justify-center text-white font-black uppercase tracking-widest text-center px-4">HotelSphere Pro Connecting...</div>;
   if (!isLoggedIn) return <Login onLogin={(role) => { setCurrentUserRole(role); setIsLoggedIn(true); }} settings={settings} />;
 
   const getOccupancyColor = (room: Room, bookingsList: Booking[]): string => {
@@ -559,7 +622,7 @@ const App: React.FC = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </button>
             <button 
-              onClick={refreshFromCloud}
+              onClick={() => refreshFromCloud()}
               disabled={isSyncing}
               className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all ${syncStatus === 'OK' ? 'border-green-100 bg-green-50' : 'border-red-100 bg-red-50'} ${isSyncing ? 'animate-pulse' : ''}`}
             >
