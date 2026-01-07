@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HostelSettings, Room, AgentConfig, RoomStatus, UserRole } from '../types.ts';
-import { exportDatabase, resetDatabase } from '../services/db.ts';
+import { exportDatabase, resetDatabase, clearOperationalData, importDatabase } from '../services/db.ts';
 
 interface SettingsProps {
   settings: HostelSettings;
@@ -46,10 +46,35 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
   };
 
   const handleResetData = async () => {
-    const confirm1 = window.confirm("CRITICAL WARNING: This will permanently delete ALL local data. Are you sure?");
-    if (confirm1 && window.confirm("FINAL CONFIRMATION: Wipe database?")) {
+    const confirm1 = window.confirm("FACTORY RESET WARNING: This will permanently delete ALL data (Settings, Rooms, Guests, Bookings). Continue?");
+    if (confirm1 && window.confirm("FINAL CONFIRMATION: Wipe all records?")) {
       await resetDatabase();
     }
+  };
+
+  const handleClearOps = async () => {
+    const confirm1 = window.confirm("RESET OPERATIONS: This will delete all Guests, Bookings, and Bills, and mark all Rooms as VACANT. Room inventory and settings will be KEPT. Continue?");
+    if (confirm1 && window.confirm("CONFIRM: Clear operational test data?")) {
+      await clearOperationalData();
+    }
+  };
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (window.confirm("RESTORE DATA: This will replace all current data with the contents of the backup file. Any unsaved changes will be lost. Continue?")) {
+      try {
+        await importDatabase(file);
+        alert("Data restored successfully! The application will now reload.");
+        window.location.reload();
+      } catch (err) {
+        console.error("Restore failed:", err);
+        alert("Failed to restore data. Please ensure you are using a valid HotelSphere backup file.");
+      }
+    }
+    // Clear input so same file can be selected again if needed
+    e.target.value = '';
   };
 
   return (
@@ -69,7 +94,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
         {activeSubTab === 'GENERAL' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
             <section className="bg-white p-6 md:p-8 rounded-3xl border shadow-sm space-y-6">
-              <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4">Branding & Billing</h3>
+              <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4 text-blue-900">Branding & Billing</h3>
               <Input label="Business Name" value={tempSettings.name} onChange={v => handleUpdate('name', v)} />
               <Input label="Property Address" value={tempSettings.address} onChange={v => handleUpdate('address', v)} />
               <div className="grid grid-cols-2 gap-4">
@@ -84,12 +109,40 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, rooms, onDel
             </section>
             
             <section className="bg-white p-6 md:p-8 rounded-3xl border shadow-sm space-y-6 h-fit">
-              <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4">Backups</h3>
-              <button onClick={exportDatabase} className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-black transition-all">Download Backup</button>
+              <h3 className="font-black uppercase text-xs tracking-widest border-b pb-4 text-slate-400">System Tools</h3>
+              <div className="space-y-3">
+                <button onClick={exportDatabase} className="w-full bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-black transition-all">Download Full Backup</button>
+                
+                <button 
+                  onClick={() => document.getElementById('restore-input')?.click()} 
+                  className="w-full bg-white text-blue-900 border-2 border-blue-100 py-4 rounded-2xl font-black text-xs uppercase hover:bg-blue-50 transition-all"
+                >
+                  Restore from Backup
+                </button>
+                <input 
+                  id="restore-input" 
+                  type="file" 
+                  accept=".json" 
+                  onChange={handleRestore} 
+                  className="hidden" 
+                />
+              </div>
+              
               {['SUPERADMIN', 'ADMIN'].includes(currentRole) && (
-                <div className="pt-6 border-t">
-                  <h3 className="font-black uppercase text-[10px] text-red-600 mb-4">Danger Zone</h3>
-                  <button onClick={handleResetData} className="w-full bg-red-50 text-red-600 border-2 border-red-100 py-3 rounded-2xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Wipe Database</button>
+                <div className="pt-6 border-t space-y-4">
+                  <h3 className="font-black uppercase text-[10px] text-red-600 mb-2">Danger Zone</h3>
+                  
+                  <div className="p-4 bg-orange-50 border-2 border-orange-100 rounded-2xl space-y-3">
+                    <p className="text-[9px] font-black uppercase text-orange-800">Operational Reset</p>
+                    <p className="text-[8px] font-bold text-orange-600 leading-tight">Clears all Bookings, Guests, and Bills. Keeps your Room inventory and Branding. Best for removing test data.</p>
+                    <button onClick={handleClearOps} className="w-full bg-white text-orange-600 border-2 border-orange-200 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-orange-600 hover:text-white transition-all">Clear Records Only</button>
+                  </div>
+
+                  <div className="p-4 bg-red-50 border-2 border-red-100 rounded-2xl space-y-3">
+                    <p className="text-[9px] font-black uppercase text-red-800">Factory Reset</p>
+                    <p className="text-[8px] font-bold text-red-600 leading-tight">Wipes everything. Deletes Rooms, Settings, and all Data. Use this for a fresh installation.</p>
+                    <button onClick={handleResetData} className="w-full bg-red-600 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all">Wipe All Data</button>
+                  </div>
                 </div>
               )}
             </section>
@@ -236,9 +289,9 @@ const SubTab: React.FC<{ active: boolean, label: string, onClick: () => void }> 
 );
 
 const Input: React.FC<{ label: string, value: string, onChange: (v: string) => void, type?: string }> = ({ label, value, onChange, type = "text" }) => (
-  <div className="space-y-1 w-full">
+  <div className="space-y-1 w-full text-left">
     <label className="text-[9px] md:text-[10px] font-black uppercase text-gray-400 ml-2 tracking-tight">{label}</label>
-    <input type={type} className="w-full border-2 p-3.5 md:p-4 rounded-2xl font-black text-[12px] bg-gray-50 focus:bg-white focus:border-blue-500 shadow-inner text-black transition-all outline-none" value={value} onChange={e => onChange(e.target.value)} />
+    <input type={type} className="w-full border-2 p-3.5 md:p-4 rounded-2xl font-black text-[12px] bg-gray-50 focus:bg-white focus:border-blue-500 shadow-inner text-black transition-all outline-none" value={value || ''} onChange={e => onChange(e.target.value)} />
   </div>
 );
 

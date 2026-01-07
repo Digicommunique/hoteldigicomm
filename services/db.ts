@@ -1,8 +1,8 @@
 
-
 import { Dexie } from 'dexie';
 import type { Table } from 'dexie';
-import { Room, Guest, Booking, Transaction, HostelSettings, GroupProfile } from '../types';
+import { Room, Guest, Booking, Transaction, HostelSettings, GroupProfile, RoomStatus } from '../types';
+import { supabase } from './supabase.ts';
 
 /**
  * HotelSphereDB class extending Dexie to manage local indexedDB storage.
@@ -20,8 +20,6 @@ export class HotelSphereDB extends Dexie {
     super('HotelSphereDB');
     
     // Define the database schema and version.
-    // version() is inherited from the Dexie base class.
-    // Fix: cast this to any to access version() method if type recognition fails
     (this as any).version(4).stores({
       rooms: 'id, number, floor, status, type',
       guests: 'id, name, phone, email, nationality',
@@ -37,10 +35,9 @@ export const db = new HotelSphereDB();
 
 /**
  * Resets the entire local database by clearing all tables.
+ * This is a factory reset.
  */
 export async function resetDatabase() {
-  // Use db.transaction to ensure all tables are cleared atomically.
-  // Fix: cast db to any to access transaction() method if type recognition fails
   await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
     await db.rooms.clear();
     await db.guests.clear();
@@ -49,6 +46,60 @@ export async function resetDatabase() {
     await db.settings.clear();
     await db.groups.clear();
   });
+
+  // Attempt to clear cloud if connected
+  try {
+    await Promise.all([
+      supabase.from('rooms').delete().neq('id', '0'),
+      supabase.from('guests').delete().neq('id', '0'),
+      supabase.from('bookings').delete().neq('id', '0'),
+      supabase.from('transactions').delete().neq('id', '0'),
+      supabase.from('settings').delete().neq('id', '0'),
+      supabase.from('groups').delete().neq('id', '0'),
+    ]);
+  } catch (e) {
+    console.warn("Cloud wipe failed or not configured", e);
+  }
+
+  window.location.reload();
+}
+
+/**
+ * Clears only operational data (Guests, Bookings, Transactions) 
+ * but keeps Rooms Inventory and Branding Settings.
+ */
+export async function clearOperationalData() {
+  await (db as any).transaction('rw', [db.guests, db.bookings, db.financialTransactions, db.groups, db.rooms], async () => {
+    // 1. Clear operational tables
+    await db.guests.clear();
+    await db.bookings.clear();
+    await db.financialTransactions.clear();
+    await db.groups.clear();
+
+    // 2. Reset all rooms to VACANT
+    const allRooms = await db.rooms.toArray();
+    const resetRooms = allRooms.map(r => ({
+      ...r,
+      status: RoomStatus.VACANT,
+      currentBookingId: undefined
+    }));
+    await db.rooms.bulkPut(resetRooms);
+  });
+
+  // Sync deletions to cloud
+  try {
+    await Promise.all([
+      supabase.from('guests').delete().neq('id', '0'),
+      supabase.from('bookings').delete().neq('id', '0'),
+      supabase.from('transactions').delete().neq('id', '0'),
+      supabase.from('groups').delete().neq('id', '0'),
+      // For rooms, we update them to VACANT in cloud rather than delete
+      supabase.from('rooms').update({ status: RoomStatus.VACANT, currentBookingId: null }).neq('id', '0')
+    ]);
+  } catch (e) {
+    console.warn("Cloud operational reset failed", e);
+  }
+
   window.location.reload();
 }
 
@@ -74,7 +125,6 @@ export async function exportDatabase() {
 
 /**
  * Imports data from a provided JSON file back into the database.
- * @param jsonFile The backup JSON file.
  */
 export async function importDatabase(jsonFile: File) {
   const reader = new FileReader();
@@ -85,8 +135,6 @@ export async function importDatabase(jsonFile: File) {
         if (!result) throw new Error("Could not read file result");
         
         const data = JSON.parse(result as string);
-        // Use db.transaction to ensure the import process is atomic.
-        // Fix: cast db to any to access transaction() method if type recognition fails
         await (db as any).transaction('rw', [db.rooms, db.guests, db.bookings, db.financialTransactions, db.settings, db.groups], async () => {
           if (data.rooms) { await db.rooms.clear(); await db.rooms.bulkAdd(data.rooms); }
           if (data.guests) { await db.guests.clear(); await db.guests.bulkAdd(data.guests); }

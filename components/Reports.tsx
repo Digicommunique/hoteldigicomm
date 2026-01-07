@@ -67,7 +67,6 @@ const Reports: React.FC<ReportsProps> = ({ bookings, guests, rooms, transactions
       return transactions.filter(t => t.type === 'RECEIPT' && t.date >= start && t.date <= end);
     }
     if (activeReport === 'POLICE') {
-      // In-house at any point during range
       return bookings.filter(b => 
         b.status !== 'CANCELLED' && 
         ((b.checkInDate <= end && b.checkOutDate >= start))
@@ -75,7 +74,6 @@ const Reports: React.FC<ReportsProps> = ({ bookings, guests, rooms, transactions
     }
     if (activeReport === 'C_FORM') {
       const foreignGuests = guests.filter(g => g.nationality && g.nationality.toLowerCase() !== 'indian');
-      // Filter foreign guests who were in-house during range
       return foreignGuests.filter(g => {
         const guestBookings = bookings.filter(b => b.guestId === g.id);
         return guestBookings.some(b => b.checkInDate <= end && b.checkOutDate >= start);
@@ -158,6 +156,39 @@ const Reports: React.FC<ReportsProps> = ({ bookings, guests, rooms, transactions
     }
   };
 
+  /**
+   * Status Indicator for Guest Documents
+   * Uses labeled circles for high visibility in chart cells
+   */
+  const DocIndicator = ({ guest }: { guest: Guest }) => {
+    const docs = guest.documents || {};
+    const hasPhoto = !!docs.photo;
+    const hasAadhar = !!(docs.aadharFront || docs.aadharBack);
+    const hasPan = !!docs.pan;
+    const hasPassport = !!(docs.passportFront || docs.passportBack);
+
+    if (!hasPhoto && !hasAadhar && !hasPan && !hasPassport) {
+      return <div className="text-[8px] font-black text-red-500 uppercase mt-1">No Docs</div>;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1 justify-center mt-1">
+        {hasPhoto && (
+          <div title="Photo Uploaded" className="w-3 h-3 rounded-full bg-blue-600 text-[6px] text-white flex items-center justify-center font-black">P</div>
+        )}
+        {hasAadhar && (
+          <div title="Aadhar Uploaded" className="w-3 h-3 rounded-full bg-green-600 text-[6px] text-white flex items-center justify-center font-black">A</div>
+        )}
+        {hasPan && (
+          <div title="PAN/ID Uploaded" className="w-3 h-3 rounded-full bg-red-600 text-[6px] text-white flex items-center justify-center font-black">I</div>
+        )}
+        {hasPassport && (
+          <div title="Passport/Visa Uploaded" className="w-3 h-3 rounded-full bg-purple-600 text-[6px] text-white flex items-center justify-center font-black">V</div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-10 bg-white min-h-full flex flex-col animate-in fade-in duration-500">
       {/* Tab Navigation */}
@@ -213,6 +244,30 @@ const Reports: React.FC<ReportsProps> = ({ bookings, guests, rooms, transactions
       <div className="report-content flex-1">
         {activeReport === 'OCCUPANCY' && (
           <div className="space-y-6">
+            <div className="flex items-center flex-wrap gap-6 no-print mb-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Verification Status Legend:</span>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-[10px]">P</div>
+                    <span className="text-[9px] font-black uppercase text-slate-600">Photo</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center font-black text-[10px]">A</div>
+                    <span className="text-[9px] font-black uppercase text-slate-600">Aadhar</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-[10px]">I</div>
+                    <span className="text-[9px] font-black uppercase text-slate-600">ID/PAN</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center font-black text-[10px]">V</div>
+                    <span className="text-[9px] font-black uppercase text-slate-600">Passport/Visa</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div className="overflow-x-auto border-2 rounded-[2.5rem] shadow-2xl bg-white max-h-[72vh] custom-scrollbar border-slate-100">
               <table className="w-full border-collapse table-fixed min-w-[2000px]">
                 <thead className="sticky top-0 z-30">
@@ -246,16 +301,22 @@ const Reports: React.FC<ReportsProps> = ({ bookings, guests, rooms, transactions
                           dateStr >= b.checkInDate && 
                           dateStr < b.checkOutDate
                         );
-                        const guest = bookingForDay ? findGuest(bookingForDay.guestId) : null;
+                        
+                        // Find Guest and ensure robust ID matching
+                        const guest = bookingForDay ? guests.find(g => g.id === bookingForDay.guestId || g.phone === bookingForDay.guestId) : null;
+                        
                         return (
-                          <td key={idx} className={`p-1.5 h-16 text-center transition-all ${getCellStyles(bookingForDay?.status)}`} title={bookingForDay ? `${guest?.name} (${bookingForDay.status})` : 'Available'}>
+                          <td key={idx} className={`p-1 h-24 text-center transition-all ${getCellStyles(bookingForDay?.status)}`} title={bookingForDay ? `${guest?.name || 'GUEST'} (${bookingForDay.status})` : 'Available'}>
                             {bookingForDay ? (
-                              <div className="flex flex-col items-center justify-center h-full gap-0.5 px-1">
-                                <span className="line-clamp-2 leading-none font-black text-[8px]">{guest?.name || 'GUEST'}</span>
-                                <div className="w-1 h-1 rounded-full bg-current opacity-30 mt-1"></div>
+                              <div className="flex flex-col items-center justify-center h-full gap-1 px-1">
+                                <span className="line-clamp-1 leading-none font-black text-[8px] max-w-full overflow-hidden truncate">{guest?.name || 'GUEST'}</span>
+                                <DocIndicator guest={guest as Guest || { id: '', name: '', phone: '', email: '', address: '', city: '', state: '', nationality: '', documents: {} }} />
+                                <div className="mt-1 flex items-center justify-center">
+                                   <div className="w-1 h-1 rounded-full bg-current opacity-30"></div>
+                                </div>
                               </div>
                             ) : (
-                              <div className="opacity-0 group-hover:opacity-20 flex items-center justify-center h-full">
+                              <div className="opacity-0 group-hover:opacity-10 flex items-center justify-center h-full">
                                 <span className="text-[7px] tracking-tighter font-black">VACANT</span>
                               </div>
                             )}
